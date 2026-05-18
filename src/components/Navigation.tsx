@@ -3,13 +3,14 @@
  * Top navigation bar with role-based links and logout
  */
 
-import React from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
 export const Navigation: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -19,7 +20,7 @@ export const Navigation: React.FC = () => {
   return (
     <nav className="sticky top-0 z-50 bg-slate-950/95 backdrop-blur-xl border-b border-slate-800/70 shadow-[0_22px_48px_rgba(15,23,42,0.16)] text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between h-20">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between h-auto lg:h-20 py-4 lg:py-0">
           <Link
             to={user?.role === "Supervisor" ? "/supervisor" : "/manager"}
             className="inline-flex items-center gap-3 font-semibold text-lg tracking-tight transition-all duration-300 hover:scale-105"
@@ -58,7 +59,8 @@ export const Navigation: React.FC = () => {
               )}
             </div>
 
-            <div className="flex items-center gap-3 rounded-3xl border border-slate-800/70 bg-slate-900/60 px-3 py-2">
+            {/* Desktop: Show username and logout inline */}
+            <div className="hidden lg:flex items-center gap-3 rounded-3xl border border-slate-800/70 bg-slate-900/60 px-3 py-2">
               <div className="text-left">
                 <p className="text-sm font-semibold text-white">{user?.name}</p>
                 <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
@@ -71,6 +73,50 @@ export const Navigation: React.FC = () => {
               >
                 Logout
               </button>
+            </div>
+
+            {/* Mobile: Dropdown toggle */}
+            <div className="lg:hidden relative">
+              <button
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="flex items-center gap-2 rounded-3xl border border-slate-800/70 bg-slate-900/60 px-3 py-2"
+              >
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-white">
+                    {user?.name}
+                  </p>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                    {user?.role}
+                  </p>
+                </div>
+                <svg
+                  className={`w-4 h-4 text-slate-400 transition-transform ${
+                    dropdownOpen ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+
+              {/* Dropdown menu */}
+              {dropdownOpen && (
+                <div className="absolute left-0 mt-2 w-full bg-slate-900 border border-slate-800/70 rounded-2xl shadow-xl overflow-hidden z-50">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-slate-800/60 transition-colors"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
