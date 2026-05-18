@@ -4,21 +4,23 @@ A full-stack web application for managing block factory operations including pro
 
 ## Tech Stack
 
-- **Frontend**: React 18 + TypeScript + Vite
+- **Frontend**: React 19 + TypeScript + Vite
 - **Styling**: Tailwind CSS
-- **Database**: sql.js (SQLite in browser, no backend server)
+- **Backend**: Supabase (PostgreSQL + Auth + Realtime)
 - **State Management**: React Context API
-- **Routing**: React Router v6
+- **Routing**: React Router v7
 
-## Features (Phase 1 - Foundation)
+## Features
 
 ### Authentication & Authorization
-- Simple role-based login (no password required for this phase)
-- Two roles: **Supervisor** and **Manager**
+
+- Email/password authentication via employees table
+- Two roles: **Supervisor** and **Manager** (from employee records)
 - Auth state persisted in localStorage
 - Protected routes with role validation
 
 ### Data Models
+
 1. **Block Types**: solid-5inch, solid-6inch, hollow-5inch, hollow-6inch
 2. **Production Config**: Customizable batch settings per block type
 3. **Employee**: Worker details with daily production rate
@@ -27,14 +29,16 @@ A full-stack web application for managing block factory operations including pro
 6. **Salary Record**: Payment tracking with status (pending | approved | paid)
 
 ### Database
-- **SQLite** running in the browser via sql.js
-- Database serialized and stored in localStorage for persistence
-- Demo/seed data loaded on first app start
+
+- **PostgreSQL** hosted on Supabase
+- Real-time data synchronization
+- Row-level security for role-based access
 
 ### Navigation
-- **/login** - Role-based login form
-- **/supervisor** - Supervisor dashboard (placeholder with feature cards)
-- **/manager** - Manager dashboard (placeholder with feature cards)
+
+- **/login** - Email/password login form
+- **/supervisor** - Supervisor dashboard
+- **/manager** - Manager dashboard
 - **/not-found** - 404 error page
 
 ## Project Structure
@@ -44,19 +48,30 @@ src/
 ├── types/
 │   └── index.ts                 # Shared data model interfaces
 ├── context/
-│   └── AuthContext.tsx          # Authentication state management
+│   ├── AuthContext.tsx          # Supabase Auth state management
+│   └── ToastContext.tsx         # Toast notification context
 ├── hooks/
 │   └── useAuth.ts               # Auth context hook
+├── lib/
+│   └── supabase.ts              # Supabase client configuration
 ├── utils/
-│   ├── db.ts                    # SQLite utilities (init, query, save)
-│   └── seed-data.ts             # Demo data generation
+│   ├── db.ts                    # Supabase database operations
+│   └── config.ts               # Utility functions
 ├── components/
 │   ├── Navigation.tsx           # Top navigation bar
 │   └── ProtectedRoute.tsx       # Route guard component
 ├── pages/
 │   ├── Login.tsx                # Login page
-│   ├── SupervisorDashboard.tsx  # Supervisor dashboard placeholder
-│   ├── ManagerDashboard.tsx     # Manager dashboard placeholder
+│   ├── SupervisorDashboard.tsx  # Supervisor dashboard
+│   ├── EmployeeManagement.tsx   # Employee CRUD operations
+│   ├── ProductionLogging.tsx    # Daily production entry
+│   ├── Inventory.tsx            # Inventory management
+│   ├── ManagerDashboard.tsx     # Manager dashboard
+│   ├── ProductionConfig.tsx     # Production configuration
+│   ├── SalaryApproval.tsx       # Salary approval workflow
+│   ├── SalaryBatchSubmission.tsx # Salary batch creation
+│   ├── Reports.tsx              # Reports and analytics
+│   ├── AllDataView.tsx          # All data view
 │   └── NotFound.tsx             # 404 page
 ├── App.tsx                      # Main app & routing setup
 ├── main.tsx                     # Entry point with AuthProvider
@@ -65,10 +80,33 @@ src/
 
 ## Getting Started
 
+### Prerequisites
+
+1. Create a Supabase project at https://supabase.com
+2. Set up the following tables in your Supabase database:
+   - production_configs
+   - employees
+   - production_logs
+   - inventory
+   - inventory_logs
+   - salary_records
+   - salary_batches
+3. Enable Row Level Security (RLS) policies
+4. Create auth users with role metadata
+
 ### Installation
 
 ```bash
 npm install
+```
+
+### Environment Configuration
+
+Create a `.env.local` file in the project root:
+
+```env
+VITE_SUPABASE_URL=your-supabase-project-url
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
 ### Development
@@ -93,73 +131,92 @@ npm run preview
 
 ## Usage
 
-1. **Login**: Enter your name and select a role (Supervisor or Manager)
+1. **Login**: Enter your email and password (must match an active employee in the database)
 2. **Dashboard**: After login, you'll see the appropriate dashboard based on your role
 3. **Navigation**: Use the top navbar to navigate between pages and logout
 4. **Role-Based Access**: Supervisors can only access `/supervisor`, Managers can only access `/manager`
 
-## Default Demo Data
+## Database Schema
 
-On first load, the app seeds the database with:
-- 5 sample employees (3 Supervisors, 2 Managers)
-- 4 production configurations (one per block type)
-- 10 sample production logs
-- Initial inventory (500 cement bags, 50 m³ quarry dust)
-- 3 sample salary records (various statuses)
+### production_configs
 
-## Storage
+- id (text, primary key)
+- block_type (text, unique)
 
-- **Auth User**: localStorage key `blockholder_auth_user`
-- **Database**: localStorage key `blockholder_db` (serialized SQLite file)
+### employees
 
-To clear all data, open browser DevTools and run:
-```javascript
-localStorage.removeItem('blockholder_auth_user');
-localStorage.removeItem('blockholder_db');
-```
+- id (text, primary key)
+- name (text)
+- email (text)
+- password (text)
+- role (text)
+- daily_rate_per_block (real)
+- status (text)
+- specialisation (text, nullable)
+- created_at (timestamp)
 
-Then refresh the page.
+### production_logs
 
-## Phase 2 (Upcoming)
+- id (text, primary key)
+- date (text)
+- employee_id (text, foreign key)
+- block_type (text)
+- quantity_produced (integer)
+- cement_bags_used (integer)
+- quarry_dust_m3_used (real)
+- created_at (timestamp)
+- config_snapshot_bags_per_batch (integer)
+- config_snapshot_dust_per_batch (real)
+- config_snapshot_blocks_per_batch (integer)
 
-- Production logging interface (date, employee, block type, quantity, materials)
-- Salary approval workflows with payment status tracking
-- Inventory management and depletion tracking
-- Manager reports and analytics
-- CSV/PDF export functionality
-- Production configuration management
+### inventory
 
-## Notes
+- id (text, primary key)
+- cement_bags_current (integer)
+- quarry_dust_m3_current (real)
+- cement_bags_threshold (integer)
+- quarry_dust_m3_threshold (real)
+- last_updated (timestamp)
+- is_critical (integer)
 
-- This is a **browser-only application** with no backend server
-- Data persists only within the current browser's localStorage
-- No multi-device sync or cloud backup
-- Suitable for single-location factory management
+### inventory_logs
+
+- id (text, primary key)
+- type (text)
+- quantity (real)
+- note (text, nullable)
+- created_at (timestamp)
+
+### salary_records
+
+- id (text, primary key)
+- employee_id (text, foreign key)
+- period (text)
+- blocks_total (integer)
+- amount (real)
+- status (text)
+- created_at (timestamp)
+- updated_at (timestamp)
+- batch_id (text, foreign key, nullable)
+- rejection_note (text, nullable)
+
+### salary_batches
+
+- id (text, primary key)
+- period (text)
+- period_type (text)
+- status (text)
+- total_amount (real)
+- total_blocks (integer)
+- submitted_by (text, nullable)
+- submitted_at (timestamp, nullable)
+- approved_by (text, nullable)
+- approved_at (timestamp, nullable)
+- paid_by (text, nullable)
+- paid_at (timestamp, nullable)
+- created_at (timestamp)
+- updated_at (timestamp)
 
 ## License
 
 MIT
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-# block-holder

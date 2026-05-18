@@ -33,6 +33,8 @@ export interface Employee {
   status: EmployeeStatus;
   specialisation?: BlockType;
   created_at: string;
+  total_blocks_month?: number;
+  projected_salary_month?: number;
 }
 
 // Production Log - Record of daily production
@@ -45,6 +47,11 @@ export interface ProductionLog {
   cement_bags_used: number;
   quarry_dust_m3_used: number;
   created_at: string;
+  config_snapshot_bags_per_batch: number;
+  config_snapshot_dust_per_batch: number;
+  config_snapshot_blocks_per_batch: number;
+  employee_name?: string;
+  inventory_critical?: boolean;
 }
 
 // Inventory - Current stock of materials
@@ -55,6 +62,7 @@ export interface Inventory {
   cement_bags_threshold: number;
   quarry_dust_m3_threshold: number;
   last_updated: string;
+  is_critical?: number;
 }
 
 export interface InventoryLog {
@@ -120,15 +128,17 @@ export interface SalaryBatchDetail {
   records: SalaryRecord[];
 }
 
-// User - Currently logged-in user
+// User - Currently logged-in user (Supabase Auth)
 export interface User {
   id: string;
-  name: string;
-  role: UserRole;
+  email?: string;
+  name?: string;
+  role?: UserRole;
 }
 
 // Auth Context State
 export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
+  loading: boolean;
 }

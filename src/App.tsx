@@ -27,7 +27,15 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ToastProvider } from "./context/ToastContext";
 
 function AppContent() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <Routes>
