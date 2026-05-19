@@ -9,6 +9,7 @@ import { Navigation } from "../components/Navigation";
 import { getEmployees, createEmployee, updateEmployee } from "../utils/db";
 import { useToast } from "../context/ToastContext";
 import { formatCurrency, formatDate } from "../utils/config";
+import { supabase } from "../lib/supabase";
 import type { EmployeeStatus, UserRole, BlockType } from "../types";
 
 export const EmployeeManagement: React.FC = () => {
@@ -20,6 +21,9 @@ export const EmployeeManagement: React.FC = () => {
     "all",
   );
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showLogsModal, setShowLogsModal] = useState(false);
+  const [selectedEmployeeLogs, setSelectedEmployeeLogs] = useState<any[]>([]);
+  const [selectedEmployeeName, setSelectedEmployeeName] = useState("");
   const toast = useToast();
   const [newEmployee, setNewEmployee] = useState({
     name: "",
@@ -106,6 +110,27 @@ export const EmployeeManagement: React.FC = () => {
       fetchEmployees();
     } catch (error) {
       console.error("Failed to update rate:", error);
+    }
+  };
+
+  const handleViewLogs = async (employeeId: string, employeeName: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("production_logs")
+        .select("*")
+        .eq("employee_id", employeeId)
+        .order("date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      setSelectedEmployeeLogs(data || []);
+      setSelectedEmployeeName(employeeName);
+      setShowLogsModal(true);
+    } catch (error) {
+      console.error("Failed to fetch logs:", error);
+      toast.error("Failed to load employee logs");
     }
   };
 
@@ -376,7 +401,10 @@ export const EmployeeManagement: React.FC = () => {
                         </button>
                       </td>
                       <td className="px-6 py-4">
-                        <button className="text-gray-400 hover:text-gray-600 text-sm">
+                        <button
+                          onClick={() => handleViewLogs(emp.id, emp.name)}
+                          className="text-gray-400 hover:text-blue-600 text-sm"
+                        >
                           View Logs
                         </button>
                       </td>
@@ -481,6 +509,88 @@ export const EmployeeManagement: React.FC = () => {
           </>
         )}
       </div>
+
+      {/* Employee Logs Modal */}
+      {showLogsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800">
+                  Production Logs - {selectedEmployeeName}
+                </h2>
+                <p className="text-gray-600 text-sm mt-1">
+                  Showing last 50 records
+                </p>
+              </div>
+              <button
+                onClick={() => setShowLogsModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              {selectedEmployeeLogs.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  No production logs found for this employee
+                </div>
+              ) : (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">
+                        Date
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">
+                        Block Type
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">
+                        Quantity
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">
+                        Cement Used
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">
+                        Dust Used
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {selectedEmployeeLogs.map((log) => (
+                      <tr key={log.id}>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {formatDate(log.date)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {log.block_type}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-bold text-gray-900">
+                          {log.quantity_produced.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {log.cement_bags_used} bags
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {log.quarry_dust_m3_used} m³
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end">
+              <button
+                onClick={() => setShowLogsModal(false)}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg transition-all duration-200"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

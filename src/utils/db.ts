@@ -529,7 +529,7 @@ export async function getSalaryBatch(id: string) {
     `,
     )
     .eq("batch_id", id)
-    .order("employees.name");
+    .order("name", { foreignTable: "employees" });
 
   if (recordsError) throw recordsError;
 

@@ -12,6 +12,7 @@ import {
 import { useAuth } from "./hooks/useAuth";
 
 import { Login } from "./pages/Login";
+import { Signup } from "./pages/Signup";
 import { SupervisorDashboard } from "./pages/SupervisorDashboard";
 import { EmployeeManagement } from "./pages/EmployeeManagement";
 import { ProductionLogging } from "./pages/ProductionLogging";
@@ -51,6 +52,13 @@ function AppContent() {
           ) : (
             <Login />
           )
+        }
+      />
+
+      <Route
+        path="/signup"
+        element={
+          <Signup />
         }
       />
 

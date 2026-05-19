@@ -12,6 +12,7 @@ const AUTH_STORAGE_KEY = "blockholder_auth_user";
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
+  signup: (name: string, role: string, daily_rate_per_block: number, specialisation: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -72,6 +73,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsAuthenticated(true);
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newUser));
   };
+  
+  const signup = async (name: string, role: string, daily_rate_per_block: number, specialisation: string, email: string, password: string) => {
+    // Query employee by email and password
+    const { data: employee, error } = await supabase
+      .from("employees")
+      .select("*")
+      .eq("email", email)
+
+    if (error || employee.length > 0) {
+      throw new Error("Invalid email or password");
+    }
+
+    const { data: signupData, error: signupError } = await supabase
+      .from("employees")
+      .insert([{ id: new Date().getTime().toString(), name: name, role: role, daily_rate_per_block: daily_rate_per_block, status: "active", created_at: new Date().toISOString(), specialisation: specialisation, email: email, password: password }])
+      .select();
+              
+    if (signupError) {
+      throw new Error("Failed to create employee");
+    }
+
+    setLoading(false);
+
+    const newUser: User = {
+      id: signupData[0].id,
+      email: email,
+      name: signupData[0].name,
+      role: signupData[0].role as UserRole,
+    };
+
+    setUser(newUser);
+    setIsAuthenticated(true);
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newUser));
+  };
 
   const logout = async () => {
     setUser(null);
@@ -81,7 +116,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, isAuthenticated, loading, login, logout }}
+      value={{ user, isAuthenticated, loading, login, signup, logout }}
     >
       {children}
     </AuthContext.Provider>

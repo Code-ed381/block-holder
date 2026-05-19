@@ -173,6 +173,13 @@ export const Login: React.FC = () => {
                 </svg>
               )}
             </button>
+
+            <div className="mt-4 text-center text-slate-400 text-sm">
+              <p>Don't have an account?</p>
+              <a href="/#/signup" className="text-amber-500 hover:text-amber-400 transition-colors">
+                Sign up
+              </a>
+            </div>
           </form>
         </div>
 

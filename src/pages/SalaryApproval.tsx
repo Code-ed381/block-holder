@@ -25,6 +25,7 @@ export const SalaryApproval: React.FC = () => {
     recordId: string;
     note: string;
   } | null>(null);
+  const [viewRecordModal, setViewRecordModal] = useState<any>(null);
   const [productionLogs, setProductionLogs] = useState<any[]>([]);
 
   useEffect(() => {
@@ -380,30 +381,12 @@ export const SalaryApproval: React.FC = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            {selectedBatch.batch.status === "pending" &&
-                              record.status === "pending" && (
-                                <div className="flex space-x-2">
-                                  <button
-                                    onClick={() =>
-                                      handleApproveRecord(record.id)
-                                    }
-                                    className="text-green-600 hover:text-green-800"
-                                  >
-                                    Approve
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      setRejectDialog({
-                                        recordId: record.id,
-                                        note: "",
-                                      })
-                                    }
-                                    className="text-red-600 hover:text-red-800"
-                                  >
-                                    Reject
-                                  </button>
-                                </div>
-                              )}
+                            <button
+                              onClick={() => setViewRecordModal(record)}
+                              className="text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              View Details
+                            </button>
                           </td>
                         </tr>
                       );
@@ -467,6 +450,137 @@ export const SalaryApproval: React.FC = () => {
                 >
                   Reject
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* View Record Modal */}
+        {viewRecordModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-start mb-6">
+                <h3 className="text-xl font-semibold text-gray-800">
+                  Salary Record Details
+                </h3>
+                <button
+                  onClick={() => setViewRecordModal(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Employee Info */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">
+                    Employee Information
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500">Name</p>
+                      <p className="font-medium text-gray-900">
+                        {viewRecordModal.employee_name}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Role</p>
+                      <p className="font-medium text-gray-900">
+                        {selectedBatch?.records.find(
+                          (r: any) => r.id === viewRecordModal.id,
+                        )?.employee_role || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Salary Calculation */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">
+                    Salary Calculation
+                  </h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">
+                        Daily Rate per Block
+                      </span>
+                      <span className="font-medium">
+                        ${viewRecordModal.daily_rate_per_block?.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Blocks Billed</span>
+                      <span className="font-medium">
+                        {viewRecordModal.blocks_total}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2 mt-2">
+                      <span className="text-gray-600 font-medium">
+                        Total Amount
+                      </span>
+                      <span className="font-bold text-lg text-blue-800">
+                        ${viewRecordModal.amount.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Production Logs */}
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">
+                    Production Logs ({viewRecordModal.period})
+                  </h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Blocks Logged</span>
+                      <span className="font-medium">
+                        {getBlocksLogged(
+                          viewRecordModal.employee_id,
+                          viewRecordModal.period,
+                        )}
+                      </span>
+                    </div>
+                    {hasMismatch(viewRecordModal) && (
+                      <div className="bg-red-100 p-2 rounded text-red-800 text-sm">
+                        ⚠️ Mismatch: Billed {viewRecordModal.blocks_total} vs
+                        Logged{" "}
+                        {getBlocksLogged(
+                          viewRecordModal.employee_id,
+                          viewRecordModal.period,
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                {selectedBatch?.batch.status === "pending" &&
+                  viewRecordModal.status === "pending" && (
+                    <div className="flex gap-3 pt-4 border-t">
+                      <button
+                        onClick={() => {
+                          handleApproveRecord(viewRecordModal.id);
+                          setViewRecordModal(null);
+                        }}
+                        className="flex-1 bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 font-medium"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => {
+                          setRejectDialog({
+                            recordId: viewRecordModal.id,
+                            note: "",
+                          });
+                          setViewRecordModal(null);
+                        }}
+                        className="flex-1 bg-red-600 text-white px-4 py-3 rounded-lg hover:bg-red-700 font-medium"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
               </div>
             </div>
           </div>

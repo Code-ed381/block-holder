@@ -76,7 +76,7 @@ export const SupervisorDashboard: React.FC = () => {
             </button>
           </div>
 
-          <div
+          {/* <div
             className="bg-white p-6 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100 group cursor-pointer"
             onClick={() => navigate("/supervisor/inventory")}
           >
@@ -100,7 +100,7 @@ export const SupervisorDashboard: React.FC = () => {
                 →
               </span>
             </button>
-          </div>
+          </div> */}
 
           <div
             className="bg-white p-6 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100 group cursor-pointer"
