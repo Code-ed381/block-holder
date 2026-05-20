@@ -156,11 +156,37 @@ export const ManagerDashboard: React.FC = () => {
 
           <div
             className="bg-white p-6 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100 group cursor-pointer"
+            onClick={() => navigate("/manager/employees")}
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="bg-indigo-100 p-3 rounded-xl group-hover:bg-indigo-200 transition-colors">
+                <span className="text-2xl">👥</span>
+              </div>
+              <div className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg text-xs font-bold uppercase tracking-wider">
+                HR
+              </div>
+            </div>
+            <h2 className="text-lg font-bold text-gray-800 mb-2">
+              Employee Management
+            </h2>
+            <p className="text-gray-600 text-sm mb-4">
+              Add, edit, and manage employee details and daily rates.
+            </p>
+            <button className="text-indigo-600 hover:text-indigo-800 font-semibold text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
+              Manage Employees{" "}
+              <span className="transition-transform group-hover:translate-x-1">
+                →
+              </span>
+            </button>
+          </div>
+
+          <div
+            className="bg-white p-6 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100 group cursor-pointer"
             onClick={() => navigate("/manager/all-data")}
           >
             <div className="flex items-start justify-between mb-4">
               <div className="bg-cyan-100 p-3 rounded-xl group-hover:bg-cyan-200 transition-colors">
-                <span className="text-2xl">👥</span>
+                <span className="text-2xl">🗄️</span>
               </div>
               <div className="bg-cyan-50 text-cyan-600 px-2 py-1 rounded-lg text-xs font-bold uppercase tracking-wider">
                 Data

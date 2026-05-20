@@ -10,10 +10,12 @@ import { getEmployees, createEmployee, updateEmployee } from "../utils/db";
 import { useToast } from "../context/ToastContext";
 import { formatCurrency, formatDate } from "../utils/config";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../hooks/useAuth";
 import type { EmployeeStatus, UserRole, BlockType } from "../types";
 
 export const EmployeeManagement: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -26,7 +28,9 @@ export const EmployeeManagement: React.FC = () => {
   const [selectedEmployeeName, setSelectedEmployeeName] = useState("");
   const toast = useToast();
   const [newEmployee, setNewEmployee] = useState({
+    id: new Date().getTime().toString(),
     name: "",
+    phone_number: "",
     role: "Supervisor" as UserRole,
     daily_rate_per_block: 0.5,
     specialisation: "" as BlockType | "",
@@ -57,7 +61,9 @@ export const EmployeeManagement: React.FC = () => {
       });
       setShowAddForm(false);
       setNewEmployee({
+        id: new Date().getTime().toString(),
         name: "",
+        phone_number: "",
         role: "Supervisor",
         daily_rate_per_block: 0.5,
         specialisation: "",
@@ -80,6 +86,7 @@ export const EmployeeManagement: React.FC = () => {
     try {
       await updateEmployee(id, {
         name: employee.name,
+        phone_number: employee.phone_number,
         role: employee.role,
         daily_rate_per_block: employee.daily_rate_per_block,
         status: currentStatus === "active" ? "inactive" : "active",
@@ -102,6 +109,7 @@ export const EmployeeManagement: React.FC = () => {
     try {
       await updateEmployee(id, {
         name: employee.name,
+        phone_number: employee.phone_number,
         role: employee.role,
         daily_rate_per_block: newRate,
         status: employee.status,
@@ -156,7 +164,7 @@ export const EmployeeManagement: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
           <div>
             <button
-              onClick={() => navigate("/supervisor")}
+              onClick={() => navigate(user?.role === "Manager" ? "/manager" : "/supervisor")}
               className="text-blue-600 hover:text-blue-800 mb-2 inline-block text-sm"
             >
               ← Back to Dashboard
@@ -198,6 +206,24 @@ export const EmployeeManagement: React.FC = () => {
                   }
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="e.g. John Doe"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Phone Number
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newEmployee.phone_number}
+                  onChange={(e) =>
+                    setNewEmployee({
+                      ...newEmployee,
+                      phone_number: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. 0701234567"
                 />
               </div>
               <div>

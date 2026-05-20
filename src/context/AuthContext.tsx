@@ -12,7 +12,7 @@ const AUTH_STORAGE_KEY = "blockholder_auth_user";
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, role: string, daily_rate_per_block: number, specialisation: string, email: string, password: string) => Promise<void>;
+  signup: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -74,7 +74,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newUser));
   };
   
-  const signup = async (name: string, role: string, daily_rate_per_block: number, specialisation: string, email: string, password: string) => {
+  const signup = async (name: string, email: string, password: string) => {
     // Query employee by email and password
     const { data: employee, error } = await supabase
       .from("employees")
@@ -87,7 +87,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const { data: signupData, error: signupError } = await supabase
       .from("employees")
-      .insert([{ id: new Date().getTime().toString(), name: name, role: role, daily_rate_per_block: daily_rate_per_block, status: "active", created_at: new Date().toISOString(), specialisation: specialisation, email: email, password: password }])
+      .insert([{ id: new Date().getTime().toString(), name: name, role: "Manager", daily_rate_per_block: "10", status: "active", created_at: new Date().toISOString(), specialisation: "manager", email: email, password: password }])
       .select();
               
     if (signupError) {

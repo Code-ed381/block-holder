@@ -9,9 +9,6 @@ import { Link } from "react-router-dom";
 
 export const Signup: React.FC = () => {
   const [name, setName] = useState("");
-  const [role, setRole] = useState("");
-  const [dailyRatePerBlock, setDailyRatePerBlock] = useState(0);
-  const [specialisation, setSpecialisation] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -37,7 +34,7 @@ export const Signup: React.FC = () => {
     }
 
     try {
-      await signup(name, role, dailyRatePerBlock, specialisation, email, password);
+      await signup(name, email, password);
       // Navigation will be handled by App.tsx based on user role
     } catch (err: any) {
       setError(err.message || "Signup failed");
@@ -128,105 +125,6 @@ export const Signup: React.FC = () => {
                   placeholder="Enter your name"
                   className="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl pl-12 pr-4 py-4 text-base text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all"
                 />
-              </div>
-            </div>
-
-            {/* Role Input Block */}
-            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-5">
-                Role
-              </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                    />
-                  </svg>
-                </span>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl pl-12 pr-4 py-4 text-base text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all"
-                >
-                  <option value="">Select your role</option>
-                  <option value="Supervisor">Supervisor</option>
-                  <option value="Manager">Manager</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Daily Rate Per Block Input Block */}
-            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-5">
-                Daily Rate Per Block
-              </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                    />
-                  </svg>
-                </span>
-                <input
-                  type="number"
-                  value={dailyRatePerBlock}
-                  onChange={(e) => setDailyRatePerBlock(Number(e.target.value))}
-                  placeholder="Enter daily rate per block"
-                  className="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl pl-12 pr-4 py-4 text-base text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Specialisation Input Block */}
-            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-5">
-                Specialisation
-              </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                    />
-                  </svg>
-                </span>
-                <select
-                  value={specialisation}
-                  onChange={(e) => setSpecialisation(e.target.value)}
-                  className="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl pl-12 pr-4 py-4 text-base text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all"
-                >
-                  <option value="">Select your specialisation</option>
-                  <option value="solid-5inch">Solid 5-inch</option>
-                  <option value="solid-6inch">Solid 6-inch</option>
-                  <option value="hollow-5inch">Hollow 5-inch</option>
-                  <option value="hollow-6inch">Hollow 6-inch</option>
-                </select>
               </div>
             </div>
 

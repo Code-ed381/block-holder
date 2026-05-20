@@ -117,6 +117,7 @@ export async function updateEmployee(
   id: string,
   data: {
     name: string;
+    phone_number: string;
     role: string;
     daily_rate_per_block: number;
     status: string;

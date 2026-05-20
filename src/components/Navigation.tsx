@@ -50,6 +50,12 @@ export const Navigation: React.FC = () => {
                     Manager Dashboard
                   </Link>
                   <Link
+                    to="/manager/employees"
+                    className="text-slate-200 hover:text-white hover:bg-slate-800/60 px-3 py-2 rounded-2xl transition-all duration-200 font-medium"
+                  >
+                    Employees
+                  </Link>
+                  <Link
                     to="/manager/reports"
                     className="text-slate-200 hover:text-white hover:bg-slate-800/60 px-3 py-2 rounded-2xl transition-all duration-200 font-medium"
                   >

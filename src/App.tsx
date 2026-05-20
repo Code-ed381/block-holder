@@ -58,7 +58,14 @@ function AppContent() {
       <Route
         path="/signup"
         element={
-          <Signup />
+          isAuthenticated ? (
+            <Navigate
+              to={user?.role === "Supervisor" ? "/supervisor" : "/manager"}
+              replace
+            />
+          ) : (
+            <Signup />
+          )
         }
       />
 
@@ -108,12 +115,20 @@ function AppContent() {
         }
       />
 
-      {/* Protected routes - Manager */}
       <Route
         path="/manager"
         element={
           <ProtectedRoute allowedRoles={["Manager"]}>
             <ManagerDashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/manager/employees"
+        element={
+          <ProtectedRoute allowedRoles={["Manager"]}>
+            <EmployeeManagement />
           </ProtectedRoute>
         }
       />
