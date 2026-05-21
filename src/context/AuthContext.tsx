@@ -11,8 +11,8 @@ import { supabase } from "../lib/supabase";
 const AUTH_STORAGE_KEY = "blockholder_auth_user";
 
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string) => Promise<void>;
+  login: (identifier: string, password?: string) => Promise<void>;
+  signup: (name: string, email: string, phone_number: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -45,26 +45,46 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
-    // Query employee by email and password
-    const { data: employee, error } = await supabase
+  const login = async (identifier: string, password?: string) => {
+    // Try phone match first, then email
+    let { data: employee, error } = await supabase
       .from("employees")
       .select("*")
-      .eq("email", email)
-      .eq("password", password)
-      .single();
+      .eq("phone_number", identifier)
+      .maybeSingle();
+
+    if (!employee) {
+      const result = await supabase
+        .from("employees")
+        .select("*")
+        .eq("email", identifier)
+        .maybeSingle();
+      employee = result.data;
+      error = result.error;
+    }
 
     if (error || !employee) {
-      throw new Error("Invalid email or password");
+      throw new Error("Account not found. Check your phone number or email.");
     }
 
     if (employee.status !== "active") {
       throw new Error("Employee account is inactive");
     }
 
+    // Managers require password, supervisors/employees log in with phone only
+    if (employee.role === "Manager") {
+      if (!password) {
+        throw new Error("Password is required for manager login");
+      }
+      if (employee.password !== password) {
+        throw new Error("Invalid password");
+      }
+    }
+
     const newUser: User = {
       id: employee.id,
-      email: email,
+      email: employee.email,
+      phone_number: employee.phone_number,
       name: employee.name,
       role: employee.role as UserRole,
     };
@@ -74,22 +94,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newUser));
   };
   
-  const signup = async (name: string, email: string, password: string) => {
-    // Query employee by email and password
-    const { data: employee, error } = await supabase
+  const signup = async (name: string, email: string, phone_number: string, password: string) => {
+    // Check if phone already taken
+    const { data: existingPhone } = await supabase
       .from("employees")
-      .select("*")
-      .eq("email", email)
+      .select("id")
+      .eq("phone_number", phone_number)
+      .maybeSingle();
 
-    if (error || employee.length > 0) {
-      throw new Error("Invalid email or password");
+    if (existingPhone) {
+      throw new Error("Phone number already registered");
+    }
+
+    // Check if email already taken
+    const { data: existingEmail } = await supabase
+      .from("employees")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+    if (existingEmail) {
+      throw new Error("Email already registered");
     }
 
     const { data: signupData, error: signupError } = await supabase
       .from("employees")
-      .insert([{ id: new Date().getTime().toString(), name: name, role: "Manager", daily_rate_per_block: "10", status: "active", created_at: new Date().toISOString(), specialisation: "manager", email: email, password: password }])
+      .insert([{
+        id: new Date().getTime().toString(),
+        name: name,
+        role: "Manager",
+        rate: 10.0,
+        status: "active",
+        created_at: new Date().toISOString(),
+        phone_number: phone_number,
+        specialisation: "manager",
+        email: email,
+        password: password,
+      }])
       .select();
-              
+             
     if (signupError) {
       throw new Error("Failed to create employee");
     }
@@ -98,7 +140,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const newUser: User = {
       id: signupData[0].id,
-      email: email,
+      email: signupData[0].email,
+      phone_number: signupData[0].phone_number,
       name: signupData[0].name,
       role: signupData[0].role as UserRole,
     };

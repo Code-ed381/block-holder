@@ -11,7 +11,7 @@ export type BlockType =
   | "hollow-6inch";
 
 // Roles - User roles in the system
-export type UserRole = "Supervisor" | "Manager";
+export type UserRole = "Supervisor" | "Manager" | "Employee";
 
 // Production Config - Customizable batch settings per block type
 export interface ProductionConfig {
@@ -29,7 +29,7 @@ export interface Employee {
   id: string;
   name: string;
   role: UserRole;
-  daily_rate_per_block: number; // Rate paid per block produced
+  rate: number;
   status: EmployeeStatus;
   specialisation?: BlockType;
   created_at: string;
@@ -92,6 +92,7 @@ export interface SalaryRecord {
   employee_id: string;
   period: string; // e.g., "2026-05" for May 2026
   blocks_total: number;
+  days_billed: number; // days for managers, 0 for per-block workers
   amount: number;
   status: SalaryStatus;
   created_at: string;
@@ -99,7 +100,7 @@ export interface SalaryRecord {
   batch_id?: string;
   rejection_note?: string;
   employee_name?: string;
-  daily_rate_per_block?: number;
+  rate?: number;
 }
 
 // Salary Batch - Group of salary records for a period
@@ -132,6 +133,7 @@ export interface SalaryBatchDetail {
 export interface User {
   id: string;
   email?: string;
+  phone_number?: string;
   name?: string;
   role?: UserRole;
 }

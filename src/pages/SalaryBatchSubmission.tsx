@@ -14,12 +14,78 @@ import {
 import { useToast } from "../context/ToastContext";
 import { formatCurrency } from "../utils/config";
 
+type PeriodType = "week" | "month";
+
+const toISODate = (date: Date): string => date.toISOString().split("T")[0];
+
+const getCurrentWeekValue = (): string => {
+  const today = new Date();
+  const utcDate = new Date(
+    Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
+  );
+  const dayNumber = utcDate.getUTCDay() || 7;
+  utcDate.setUTCDate(utcDate.getUTCDate() + 4 - dayNumber);
+  const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1));
+  const weekNumber = Math.ceil(
+    ((utcDate.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
+  );
+  return `${utcDate.getUTCFullYear()}-W${String(weekNumber).padStart(2, "0")}`;
+};
+
+const getPeriodDateRange = (
+  period: string,
+  periodType: PeriodType,
+): { startDate: string; endDate: string } | null => {
+  if (periodType === "week") {
+    const [yearStr, weekStr] = period.split("-W");
+    const year = Number(yearStr);
+    const week = Number(weekStr);
+    if (!year || !week) return null;
+
+    const jan4 = new Date(Date.UTC(year, 0, 4));
+    const jan4Day = jan4.getUTCDay() || 7;
+    const weekOneMonday = new Date(jan4);
+    weekOneMonday.setUTCDate(jan4.getUTCDate() - jan4Day + 1);
+
+    const weekStart = new Date(weekOneMonday);
+    weekStart.setUTCDate(weekOneMonday.getUTCDate() + (week - 1) * 7);
+
+    const weekEnd = new Date(weekStart);
+    weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
+
+    return {
+      startDate: toISODate(weekStart),
+      endDate: toISODate(weekEnd),
+    };
+  }
+
+  const [yearStr, monthStr] = period.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  if (!year || !month) return null;
+
+  const daysInMonth = new Date(year, month, 0).getDate();
+  return {
+    startDate: `${yearStr}-${monthStr}-01`,
+    endDate: `${yearStr}-${monthStr}-${String(daysInMonth).padStart(2, "0")}`,
+  };
+};
+
+const getDaysInPeriod = (period: string, periodType: PeriodType): number => {
+  if (periodType === "week") return 7;
+  const [yearStr, monthStr] = period.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  if (!year || !month) return 0;
+  return new Date(year, month, 0).getDate();
+};
+
 export const SalaryBatchSubmission: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToast();
   const [employees, setEmployees] = useState<any[]>([]);
   const [productionLogs, setProductionLogs] = useState<any[]>([]);
-  const [periodType, setPeriodType] = useState<"week" | "month">("month");
+  const [periodType, setPeriodType] = useState<PeriodType>("month");
   const [period, setPeriod] = useState(() => {
     const now = new Date();
     return now.toISOString().substring(0, 7); // YYYY-MM
@@ -30,6 +96,14 @@ export const SalaryBatchSubmission: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    setPeriod(
+      periodType === "month"
+        ? new Date().toISOString().substring(0, 7)
+        : getCurrentWeekValue(),
+    );
+  }, [periodType]);
 
   const loadData = async () => {
     try {
@@ -47,33 +121,61 @@ export const SalaryBatchSubmission: React.FC = () => {
   };
 
   const getEmployeeProduction = (employeeId: string): number => {
+    const range = getPeriodDateRange(period, periodType);
+    if (!range) return 0;
     return productionLogs
       .filter(
-        (log) => log.employee_id === employeeId && log.date.startsWith(period),
+        (log) =>
+          log.employee_id === employeeId &&
+          log.date >= range.startDate &&
+          log.date <= range.endDate,
       )
       .reduce((sum, log) => sum + log.quantity_produced, 0);
   };
 
-  const calculateSalary = (blocks: number, rate: number): number => {
-    return blocks * rate;
+  const calculateSalary = (
+    employee: any,
+    blocks: number,
+    daysInPeriod: number,
+  ): number => {
+    if (employee.role === "Manager") {
+      return employee.rate * daysInPeriod;
+    }
+    return blocks * employee.rate;
   };
+
+  const daysInPeriod = getDaysInPeriod(period, periodType);
+
+  const salaryBreakdown = employees
+    .filter((emp) => emp.status === "active")
+    .map((emp) => {
+      const isManager = emp.role === "Manager";
+      const blocks = getEmployeeProduction(emp.id);
+      const amount = calculateSalary(emp, blocks, daysInPeriod);
+      const activityQuantity = isManager ? daysInPeriod : blocks;
+
+      return {
+        ...emp,
+        isManager,
+        blocks,
+        amount,
+        activityQuantity,
+      };
+    })
+    .filter((emp) => emp.isManager || emp.blocks > 0);
 
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const employeeRecords = employees
-        .filter((emp) => getEmployeeProduction(emp.id) > 0)
-        .map((emp) => ({
-          employee_id: emp.id,
-          blocks_total: getEmployeeProduction(emp.id),
-          amount: calculateSalary(
-            getEmployeeProduction(emp.id),
-            emp.daily_rate_per_block,
-          ),
-        }));
+      const employeeRecords = salaryBreakdown.map((emp) => ({
+        employee_id: emp.id,
+        blocks_total: emp.isManager ? 0 : emp.blocks,
+        days_billed: emp.isManager ? daysInPeriod : 0,
+        amount: emp.amount,
+      }));
 
       if (employeeRecords.length === 0) {
-        toast.error("No production data found for the selected period");
+        toast.error("No payable records found for the selected period");
         return;
       }
 
@@ -94,16 +196,8 @@ export const SalaryBatchSubmission: React.FC = () => {
     }
   };
 
-  const totalAmount = employees.reduce((sum, emp) => {
-    return (
-      sum +
-      calculateSalary(getEmployeeProduction(emp.id), emp.daily_rate_per_block)
-    );
-  }, 0);
-
-  const totalBlocks = employees.reduce((sum, emp) => {
-    return sum + getEmployeeProduction(emp.id);
-  }, 0);
+  const totalAmount = salaryBreakdown.reduce((sum, emp) => sum + emp.amount, 0);
+  const totalBlocks = salaryBreakdown.reduce((sum, emp) => sum + emp.blocks, 0);
 
   if (loading) {
     return (
@@ -150,9 +244,7 @@ export const SalaryBatchSubmission: React.FC = () => {
               </label>
               <select
                 value={periodType}
-                onChange={(e) =>
-                  setPeriodType(e.target.value as "week" | "month")
-                }
+                onChange={(e) => setPeriodType(e.target.value as PeriodType)}
                 className="w-full border rounded-lg px-4 py-2"
               >
                 <option value="week">Weekly</option>
@@ -189,10 +281,7 @@ export const SalaryBatchSubmission: React.FC = () => {
             <div className="bg-purple-50 p-4 rounded-lg">
               <p className="text-sm text-gray-600">Employees</p>
               <p className="text-2xl font-bold text-purple-800">
-                {
-                  employees.filter((emp) => getEmployeeProduction(emp.id) > 0)
-                    .length
-                }
+                {salaryBreakdown.length}
               </p>
             </div>
           </div>
@@ -214,10 +303,10 @@ export const SalaryBatchSubmission: React.FC = () => {
                     Employee
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Rate/Block
+                    Rate
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Blocks Produced
+                    Activity
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Calculated Salary
@@ -225,43 +314,36 @@ export const SalaryBatchSubmission: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {employees
-                  .filter((emp) => getEmployeeProduction(emp.id) > 0)
-                  .map((emp) => {
-                    const blocks = getEmployeeProduction(emp.id);
-                    const salary = calculateSalary(
-                      blocks,
-                      emp.daily_rate_per_block,
-                    );
-                    return (
-                      <tr key={emp.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 font-medium text-gray-900">
-                          {emp.name}
-                        </td>
-                        <td className="px-6 py-4 text-gray-600">
-                          {formatCurrency(emp.daily_rate_per_block)}
-                        </td>
-                        <td className="px-6 py-4 text-gray-900 font-medium">
-                          {blocks}
-                        </td>
-                        <td className="px-6 py-4 text-gray-900 font-medium">
-                          {formatCurrency(salary)}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                {salaryBreakdown.map((emp) => (
+                  <tr key={emp.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 font-medium text-gray-900">
+                      {emp.name}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600">
+                      {formatCurrency(emp.rate)}{" "}
+                      {emp.isManager ? "per day" : "per block"}
+                    </td>
+                    <td className="px-6 py-4 text-gray-900 font-medium">
+                      {emp.activityQuantity} {emp.isManager ? "days" : "blocks"}
+                    </td>
+                    <td className="px-6 py-4 text-gray-900 font-medium">
+                      {formatCurrency(emp.amount)}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
 
-          {employees.filter((emp) => getEmployeeProduction(emp.id) > 0)
-            .length === 0 && (
+          {salaryBreakdown.length === 0 && (
             <div className="py-16 text-center">
               <div className="text-4xl mb-4">📭</div>
-              <h3 className="text-lg font-bold text-gray-800 mb-2">No Production Data</h3>
+              <h3 className="text-lg font-bold text-gray-800 mb-2">
+                No Payable Records
+              </h3>
               <p className="text-gray-500 max-w-sm mx-auto">
-                There are no production logs recorded for the selected period. 
-                Ask supervisors to log their production before creating a salary batch.
+                There are no active managers or production logs for the selected
+                period. Update records before creating a salary batch.
               </p>
             </div>
           )}
@@ -271,7 +353,7 @@ export const SalaryBatchSubmission: React.FC = () => {
         <div className="mt-6 flex justify-end">
           <button
             onClick={handleSubmit}
-            disabled={submitting || totalBlocks === 0}
+            disabled={submitting || salaryBreakdown.length === 0}
             className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             {submitting ? "Submitting..." : "Submit for Approval"}

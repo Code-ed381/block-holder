@@ -15,6 +15,54 @@ import {
   rejectSalaryRecord,
   getProductionLogs,
 } from "../utils/db";
+const toISODate = (date: Date): string => date.toISOString().split("T")[0];
+
+const getPeriodDateRange = (
+  period: string,
+): { startDate: string; endDate: string } | null => {
+  if (period.includes("-W")) {
+    const [yearStr, weekStr] = period.split("-W");
+    const year = Number(yearStr);
+    const week = Number(weekStr);
+    if (!year || !week) return null;
+
+    const jan4 = new Date(Date.UTC(year, 0, 4));
+    const jan4Day = jan4.getUTCDay() || 7;
+    const weekOneMonday = new Date(jan4);
+    weekOneMonday.setUTCDate(jan4.getUTCDate() - jan4Day + 1);
+
+    const weekStart = new Date(weekOneMonday);
+    weekStart.setUTCDate(weekOneMonday.getUTCDate() + (week - 1) * 7);
+
+    const weekEnd = new Date(weekStart);
+    weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
+
+    return {
+      startDate: toISODate(weekStart),
+      endDate: toISODate(weekEnd),
+    };
+  }
+
+  const [yearStr, monthStr] = period.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  if (!year || !month) return null;
+
+  const daysInMonth = new Date(year, month, 0).getDate();
+  return {
+    startDate: `${yearStr}-${monthStr}-01`,
+    endDate: `${yearStr}-${monthStr}-${String(daysInMonth).padStart(2, "0")}`,
+  };
+};
+
+const getDaysInPeriod = (period: string): number => {
+  if (period.includes("-W")) return 7;
+  const [yearStr, monthStr] = period.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  if (!year || !month) return 0;
+  return new Date(year, month, 0).getDate();
+};
 
 export const SalaryApproval: React.FC = () => {
   const navigate = useNavigate();
@@ -111,14 +159,33 @@ export const SalaryApproval: React.FC = () => {
   };
 
   const getBlocksLogged = (employeeId: string, period: string): number => {
+    const range = getPeriodDateRange(period);
+    if (!range) return 0;
     return productionLogs
       .filter(
-        (log) => log.employee_id === employeeId && log.date.startsWith(period),
+        (log) =>
+          log.employee_id === employeeId &&
+          log.date >= range.startDate &&
+          log.date <= range.endDate,
       )
       .reduce((sum, log) => sum + log.quantity_produced, 0);
   };
 
+  const isManagerRecord = (record: any): boolean =>
+    record.employee_role === "Manager";
+
+  const getActivityBilled = (record: any): number => {
+    if (isManagerRecord(record)) return record.days_billed || getDaysInPeriod(record.period);
+    return record.blocks_total;
+  };
+
+  const getActivityLogged = (record: any): number => {
+    if (isManagerRecord(record)) return getDaysInPeriod(record.period);
+    return getBlocksLogged(record.employee_id, record.period);
+  };
+
   const hasMismatch = (record: any): boolean => {
+    if (isManagerRecord(record)) return false;
     const logged = getBlocksLogged(record.employee_id, record.period);
     return logged !== record.blocks_total;
   };
@@ -299,13 +366,13 @@ export const SalaryApproval: React.FC = () => {
                         Employee
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Rate/Block
+                        Rate
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Blocks Billed
+                        Activity Billed
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Blocks Logged
+                        Activity Logged
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                         Calculated Salary
@@ -320,10 +387,9 @@ export const SalaryApproval: React.FC = () => {
                   </thead>
                   <tbody className="divide-y">
                     {selectedBatch.records.map((record: any) => {
-                      const blocksLogged = getBlocksLogged(
-                        record.employee_id,
-                        record.period,
-                      );
+                      const isManager = isManagerRecord(record);
+                      const activityBilled = getActivityBilled(record);
+                      const activityLogged = getActivityLogged(record);
                       const mismatch = hasMismatch(record);
                       return (
                         <tr
@@ -343,10 +409,11 @@ export const SalaryApproval: React.FC = () => {
                             )}
                           </td>
                           <td className="px-6 py-4 text-gray-600">
-                            ${record.daily_rate_per_block?.toFixed(2)}
+                            ${record.rate?.toFixed(2)}{" "}
+                            {isManager ? "per day" : "per block"}
                           </td>
                           <td className="px-6 py-4 text-gray-900 font-medium">
-                            {record.blocks_total}
+                            {activityBilled} {isManager ? "days" : "blocks"}
                           </td>
                           <td className="px-6 py-4">
                             <span
@@ -356,7 +423,7 @@ export const SalaryApproval: React.FC = () => {
                                   : "text-gray-900"
                               }
                             >
-                              {blocksLogged}
+                              {activityLogged} {isManager ? "days" : "blocks"}
                             </span>
                             {mismatch && (
                               <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
@@ -487,9 +554,7 @@ export const SalaryApproval: React.FC = () => {
                     <div>
                       <p className="text-xs text-gray-500">Role</p>
                       <p className="font-medium text-gray-900">
-                        {selectedBatch?.records.find(
-                          (r: any) => r.id === viewRecordModal.id,
-                        )?.employee_role || "N/A"}
+                        {viewRecordModal.employee_role || "N/A"}
                       </p>
                     </div>
                   </div>
@@ -503,16 +568,18 @@ export const SalaryApproval: React.FC = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-gray-600">
-                        Daily Rate per Block
+                        {isManagerRecord(viewRecordModal) ? "Daily Rate" : "Rate per Block"}
                       </span>
                       <span className="font-medium">
-                        ${viewRecordModal.daily_rate_per_block?.toFixed(2)}
+                        ${viewRecordModal.rate?.toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Blocks Billed</span>
+                      <span className="text-gray-600">
+                        {isManagerRecord(viewRecordModal) ? "Days Billed" : "Blocks Billed"}
+                      </span>
                       <span className="font-medium">
-                        {viewRecordModal.blocks_total}
+                        {isManagerRecord(viewRecordModal) ? viewRecordModal.days_billed : viewRecordModal.blocks_total}
                       </span>
                     </div>
                     <div className="flex justify-between border-t pt-2 mt-2">

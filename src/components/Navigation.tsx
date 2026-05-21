@@ -22,7 +22,13 @@ export const Navigation: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between h-auto lg:h-20 py-4 lg:py-0">
           <Link
-            to={user?.role === "Supervisor" ? "/supervisor" : "/manager"}
+            to={
+              user?.role === "Supervisor"
+                ? "/supervisor"
+                : user?.role === "Employee"
+                ? "/employee"
+                : "/manager"
+            }
             className="inline-flex items-center gap-3 font-semibold text-lg tracking-tight transition-all duration-300 hover:scale-105"
           >
             <span className="text-2xl">📦</span>
@@ -33,6 +39,14 @@ export const Navigation: React.FC = () => {
 
           <div className="flex flex-wrap items-center gap-2 lg:gap-4 justify-between w-full lg:w-auto">
             <div className="flex flex-wrap items-center gap-2 lg:gap-3">
+              {user?.role === "Employee" && (
+                <Link
+                  to="/employee"
+                  className="text-slate-200 hover:text-white hover:bg-slate-800/60 px-3 py-2 rounded-2xl transition-all duration-200 font-medium"
+                >
+                  Employee Dashboard
+                </Link>
+              )}
               {user?.role === "Supervisor" && (
                 <Link
                   to="/supervisor"

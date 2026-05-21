@@ -1,13 +1,13 @@
 /**
  * Login Page
- * Email/password login form using employees table
+ * Phone-based login for supervisors/employees, email+password for managers
  */
 
 import React, { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 
 export const Login: React.FC = () => {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,15 +18,14 @@ export const Login: React.FC = () => {
     setError("");
     setLoading(true);
 
-    if (!email.trim() || !password.trim()) {
-      setError("Please enter email and password");
+    if (!identifier.trim()) {
+      setError("Please enter your phone number or email");
       setLoading(false);
       return;
     }
 
     try {
-      await login(email, password);
-      // Navigation will be handled by App.tsx based on user role
+      await login(identifier, password || undefined);
     } catch (err: any) {
       setError(err.message || "Login failed");
       setLoading(false);
@@ -35,12 +34,10 @@ export const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-8 relative overflow-hidden">
-      {/* Industrial background glow */}
       <div className="absolute top-0 left-0 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-slate-500/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
 
       <div className="w-full max-w-xl z-10">
-        {/* Header - Increased margin bottom */}
         <div className="flex flex-col items-center mb-10 text-center">
           <div className="h-14 w-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl flex items-center justify-center shadow-xl shadow-amber-500/20 mb-4 border border-amber-400/20">
             <svg
@@ -65,9 +62,7 @@ export const Login: React.FC = () => {
           </p>
         </div>
 
-        {/* Main Card - Expanded from max-w-md to max-w-xl, padding boosted to p-10 */}
         <div className="bg-slate-800/80 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-2xl p-10 sm:p-12 transition-all duration-300">
-          {/* Form items spaced further apart (space-y-7) */}
           <form onSubmit={handleSubmit} className="space-y-7">
             {error && (
               <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-5 py-4 rounded-xl text-sm flex items-center gap-3 animate-shake">
@@ -88,10 +83,9 @@ export const Login: React.FC = () => {
               </div>
             )}
 
-            {/* Email Input Block */}
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-5">
-                Email Address
+                Phone Number or Email
               </label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
@@ -110,19 +104,18 @@ export const Login: React.FC = () => {
                   </svg>
                 </span>
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
+                  type="text"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="Phone number (staff) or email (manager)"
                   className="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl pl-12 pr-4 py-4 text-base text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all"
                 />
               </div>
             </div>
 
-            {/* Password Input Block */}
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
-                Password
+                Password <span className="text-slate-500 font-normal normal-case">(required for managers only)</span>
               </label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
@@ -144,13 +137,12 @@ export const Login: React.FC = () => {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  placeholder="Enter password"
                   className="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl pl-12 pr-4 py-4 text-base text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all"
                 />
               </div>
             </div>
 
-            {/* Submit Action Button */}
             <button
               type="submit"
               disabled={loading}
@@ -183,7 +175,6 @@ export const Login: React.FC = () => {
           </form>
         </div>
 
-        {/* Footer info */}
         <div className="flex items-center justify-center gap-2 mt-8 text-slate-500 text-xs tracking-widest uppercase">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
           <span>Demo Environment • Open Sandbox</span>

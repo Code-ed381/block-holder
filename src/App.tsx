@@ -13,6 +13,7 @@ import { useAuth } from "./hooks/useAuth";
 
 import { Login } from "./pages/Login";
 import { Signup } from "./pages/Signup";
+import { EmployeeDashboard } from "./pages/EmployeeDashboard";
 import { SupervisorDashboard } from "./pages/SupervisorDashboard";
 import { EmployeeManagement } from "./pages/EmployeeManagement";
 import { ProductionLogging } from "./pages/ProductionLogging";
@@ -46,7 +47,13 @@ function AppContent() {
         element={
           isAuthenticated ? (
             <Navigate
-              to={user?.role === "Supervisor" ? "/supervisor" : "/manager"}
+              to={
+                user?.role === "Supervisor"
+                  ? "/supervisor"
+                  : user?.role === "Employee"
+                  ? "/employee"
+                  : "/manager"
+              }
               replace
             />
           ) : (
@@ -60,12 +67,28 @@ function AppContent() {
         element={
           isAuthenticated ? (
             <Navigate
-              to={user?.role === "Supervisor" ? "/supervisor" : "/manager"}
+              to={
+                user?.role === "Supervisor"
+                  ? "/supervisor"
+                  : user?.role === "Employee"
+                  ? "/employee"
+                  : "/manager"
+              }
               replace
             />
           ) : (
             <Signup />
           )
+        }
+      />
+
+      {/* Protected routes - Employee */}
+      <Route
+        path="/employee"
+        element={
+          <ProtectedRoute allowedRoles={["Employee"]}>
+            <EmployeeDashboard />
+          </ProtectedRoute>
         }
       />
 
@@ -184,7 +207,13 @@ function AppContent() {
         element={
           isAuthenticated && user ? (
             <Navigate
-              to={user.role === "Supervisor" ? "/supervisor" : "/manager"}
+              to={
+                user.role === "Supervisor"
+                  ? "/supervisor"
+                  : user.role === "Employee"
+                  ? "/employee"
+                  : "/manager"
+              }
               replace
             />
           ) : (

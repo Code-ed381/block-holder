@@ -42,7 +42,7 @@ export const Reports: React.FC = () => {
         .select(
           `
           *,
-          employees(name, daily_rate_per_block)
+          employees(name, rate)
         `,
         )
         .gte("date", startDate)
@@ -83,7 +83,7 @@ export const Reports: React.FC = () => {
         .select(
           `
           *,
-          employees(name, daily_rate_per_block)
+          employees(name, rate)
         `,
         )
         .gte("period", startDate)
@@ -111,18 +111,17 @@ export const Reports: React.FC = () => {
       }
 
       // Transform data to match expected format
-      const transformedProductionLogs =
-        productionLogs?.map((log: any) => ({
-          ...log,
-          employee_name: log.employees?.name,
-          daily_rate_per_block: log.employees?.daily_rate_per_block,
-        })) || [];
-
       const transformedSalaryRecords =
         salaryRecords?.map((rec: any) => ({
           ...rec,
           employee_name: rec.employees?.name,
-          daily_rate_per_block: rec.employees?.daily_rate_per_block,
+          rate: rec.employees?.rate,
+        })) || [];
+
+      const transformedProductionLogs =
+        productionLogs?.map((log: any) => ({
+          ...log,
+          employee_name: log.employees?.name,
         })) || [];
 
       setData({
@@ -385,7 +384,7 @@ export const Reports: React.FC = () => {
                   </td>
                   <td>{rec.period}</td>
                   <td>{rec.blocks_total.toLocaleString()}</td>
-                  <td>{formatCurrency(rec.daily_rate_per_block)}</td>
+                  <td>{formatCurrency(rec.rate)}</td>
                   <td>
                     <strong>{formatCurrency(rec.amount)}</strong>
                   </td>

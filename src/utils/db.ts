@@ -51,14 +51,20 @@ export async function resetProductionConfigs() {
 // ─── Employees ─────────────────────────────────────────────────────────────────
 
 export async function getEmployees() {
-  const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
+  const now = new Date();
+  const currentMonth = now.toISOString().substring(0, 7); // YYYY-MM
+  const daysInCurrentMonth = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    0,
+  ).getDate();
 
   const { data, error } = await supabase
     .from("employees")
     .select(
       `
       *,
-      production_logs(quantity_produced)
+      production_logs(date, quantity_produced)
     `,
     )
     .order("name");
@@ -78,7 +84,10 @@ export async function getEmployees() {
     return {
       ...emp,
       total_blocks_month: totalBlocks,
-      projected_salary_month: totalBlocks * emp.daily_rate_per_block,
+      projected_salary_month:
+        emp.role === "Manager"
+          ? daysInCurrentMonth * emp.rate
+          : totalBlocks * emp.rate,
     };
   });
 }
@@ -96,7 +105,8 @@ export async function getEmployee(id: string) {
 export async function createEmployee(data: {
   name: string;
   role: string;
-  daily_rate_per_block: number;
+  rate: number;
+  phone_number?: string;
   status?: string;
   specialisation?: string;
 }) {
@@ -119,7 +129,7 @@ export async function updateEmployee(
     name: string;
     phone_number: string;
     role: string;
-    daily_rate_per_block: number;
+    rate: number;
     status: string;
     specialisation?: string | null;
   },
@@ -461,6 +471,7 @@ export async function createSalaryRecord(data: {
   employee_id: string;
   period: string;
   blocks_total: number;
+  days_billed: number;
   amount: number;
   status: string;
 }) {
@@ -526,7 +537,7 @@ export async function getSalaryBatch(id: string) {
     .select(
       `
       *,
-      employees(name, daily_rate_per_block)
+      employees(name, rate, role)
     `,
     )
     .eq("batch_id", id)
@@ -539,7 +550,8 @@ export async function getSalaryBatch(id: string) {
     records: records?.map((r: any) => ({
       ...r,
       employee_name: r.employees?.name,
-      daily_rate_per_block: r.employees?.daily_rate_per_block,
+      rate: r.employees?.rate,
+      employee_role: r.employees?.role,
     })),
   };
 }
@@ -551,6 +563,7 @@ export async function createSalaryBatch(data: {
   employee_records: Array<{
     employee_id: string;
     blocks_total: number;
+    days_billed: number;
     amount: number;
   }>;
 }) {
@@ -590,6 +603,7 @@ export async function createSalaryBatch(data: {
     employee_id: r.employee_id,
     period: data.period,
     blocks_total: r.blocks_total,
+    days_billed: r.days_billed,
     amount: r.amount,
     status: "pending",
     created_at: now,

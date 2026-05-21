@@ -32,7 +32,7 @@ export const EmployeeManagement: React.FC = () => {
     name: "",
     phone_number: "",
     role: "Supervisor" as UserRole,
-    daily_rate_per_block: 0.5,
+    rate: 0.5,
     specialisation: "" as BlockType | "",
   });
 
@@ -65,7 +65,7 @@ export const EmployeeManagement: React.FC = () => {
         name: "",
         phone_number: "",
         role: "Supervisor",
-        daily_rate_per_block: 0.5,
+        rate: 0.5,
         specialisation: "",
       });
       fetchEmployees();
@@ -88,7 +88,7 @@ export const EmployeeManagement: React.FC = () => {
         name: employee.name,
         phone_number: employee.phone_number,
         role: employee.role,
-        daily_rate_per_block: employee.daily_rate_per_block,
+        rate: employee.rate,
         status: currentStatus === "active" ? "inactive" : "active",
         specialisation: employee.specialisation,
       });
@@ -111,7 +111,7 @@ export const EmployeeManagement: React.FC = () => {
         name: employee.name,
         phone_number: employee.phone_number,
         role: employee.role,
-        daily_rate_per_block: newRate,
+        rate: newRate,
         status: employee.status,
         specialisation: employee.specialisation,
       });
@@ -151,9 +151,9 @@ export const EmployeeManagement: React.FC = () => {
   });
 
   const getRoleBadgeColor = (role: string) => {
-    return role === "Manager"
-      ? "bg-purple-100 text-purple-800"
-      : "bg-blue-100 text-blue-800";
+    if (role === "Manager") return "bg-purple-100 text-purple-800";
+    if (role === "Supervisor") return "bg-blue-100 text-blue-800";
+    return "bg-emerald-100 text-emerald-800";
   };
 
   return (
@@ -240,23 +240,24 @@ export const EmployeeManagement: React.FC = () => {
                   }
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
+                  <option value="Employee">Employee</option>
                   <option value="Supervisor">Supervisor</option>
                   <option value="Manager">Manager</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Rate per Block
+                  {newEmployee.role === "Manager" ? "Daily Rate (₵)" : "Rate per Block"}
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   required
-                  value={newEmployee.daily_rate_per_block}
+                  value={newEmployee.rate}
                   onChange={(e) =>
                     setNewEmployee({
                       ...newEmployee,
-                      daily_rate_per_block: parseFloat(e.target.value) || 0,
+                      rate: parseFloat(e.target.value) || 0,
                     })
                   }
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -348,7 +349,7 @@ export const EmployeeManagement: React.FC = () => {
                       Role & Spec
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">
-                      Rate
+                      Rate / Day
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">
                       Monthly Production
@@ -393,13 +394,14 @@ export const EmployeeManagement: React.FC = () => {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-mono font-bold">
-                            {formatCurrency(emp.daily_rate_per_block)}
+                            {formatCurrency(emp.rate)}/{emp.role === "Manager" ? "day" : "blk"}
                           </span>
                           <button
                             onClick={() => {
+                              const label = emp.role === "Manager" ? "daily rate" : "rate per block";
                               const newRate = prompt(
-                                "Enter new rate per block:",
-                                emp.daily_rate_per_block,
+                                `Enter new ${label}:`,
+                                emp.rate,
                               );
                               if (newRate !== null)
                                 handleUpdateRate(emp.id, parseFloat(newRate));
@@ -464,9 +466,9 @@ export const EmployeeManagement: React.FC = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs text-gray-500">Rate / Block</div>
+                      <div className="text-xs text-gray-500">{emp.role === "Manager" ? "Daily Rate" : "Rate / Block"}</div>
                       <div className="font-bold text-blue-600">
-                        {formatCurrency(emp.daily_rate_per_block)}
+                        {formatCurrency(emp.rate)}
                       </div>
                     </div>
                   </div>
@@ -499,9 +501,10 @@ export const EmployeeManagement: React.FC = () => {
                     </button>
                     <button
                       onClick={() => {
+                        const label = emp.role === "Manager" ? "daily rate" : "rate per block";
                         const newRate = prompt(
-                          "Enter new rate:",
-                          emp.daily_rate_per_block,
+                          `Enter new ${label}:`,
+                          emp.rate,
                         );
                         if (newRate !== null)
                           handleUpdateRate(emp.id, parseFloat(newRate));
