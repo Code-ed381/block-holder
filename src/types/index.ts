@@ -4,11 +4,12 @@
  */
 
 // Block Types - Supported block sizes and styles
-export type BlockType =
-  | "solid-5inch"
-  | "solid-6inch"
-  | "hollow-5inch"
-  | "hollow-6inch";
+export type Specialization =
+  | "mixer"
+  | "operator"
+  | "palletizer"
+  | "driver"
+  | "loader";
 
 // Roles - User roles in the system
 export type UserRole = "Supervisor" | "Manager" | "Employee";
@@ -16,7 +17,7 @@ export type UserRole = "Supervisor" | "Manager" | "Employee";
 // Production Config - Customizable batch settings per block type
 export interface ProductionConfig {
   id: string;
-  block_type: BlockType;
+  block_type: Specialization;
   bags_per_batch: number;
   quarry_dust_m3_per_batch: number;
   blocks_per_batch: number;
@@ -31,7 +32,7 @@ export interface Employee {
   role: UserRole;
   rate: number;
   status: EmployeeStatus;
-  specialisation?: BlockType;
+  specialisation?: Specialization;
   created_at: string;
   total_blocks_month?: number;
   projected_salary_month?: number;
@@ -42,7 +43,7 @@ export interface ProductionLog {
   id: string;
   date: string; // ISO date string (YYYY-MM-DD)
   employee_id: string;
-  block_type: BlockType;
+  block_type: Specialization;
   quantity_produced: number;
   cement_bags_used: number;
   quarry_dust_m3_used: number;
@@ -80,7 +81,7 @@ export interface MaterialUsage {
 }
 
 export interface ProductionBreakdown {
-  block_type: BlockType;
+  block_type: Specialization;
   total: number;
 }
 

@@ -11,7 +11,7 @@ import { useToast } from "../context/ToastContext";
 import { formatCurrency, formatDate } from "../utils/config";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
-import type { EmployeeStatus, UserRole, BlockType } from "../types";
+import type { EmployeeStatus, UserRole, Specialization } from "../types";
 
 export const EmployeeManagement: React.FC = () => {
   const navigate = useNavigate();
@@ -33,13 +33,10 @@ export const EmployeeManagement: React.FC = () => {
     phone_number: "",
     role: "Supervisor" as UserRole,
     rate: 0.5,
-    specialisation: "" as BlockType | "",
+    specialisation: "" as Specialization | "",
   });
 
-  useEffect(() => {
-    fetchEmployees();
-  }, []);
-
+  
   const fetchEmployees = async () => {
     try {
       const data = await getEmployees();
@@ -50,7 +47,12 @@ export const EmployeeManagement: React.FC = () => {
       setLoading(false);
     }
   };
+  
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
 
+  
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -272,16 +274,17 @@ export const EmployeeManagement: React.FC = () => {
                   onChange={(e) =>
                     setNewEmployee({
                       ...newEmployee,
-                      specialisation: e.target.value as BlockType,
+                      specialisation: e.target.value as Specialization,
                     })
                   }
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">None</option>
-                  <option value="solid-5inch">Solid 5"</option>
-                  <option value="solid-6inch">Solid 6"</option>
-                  <option value="hollow-5inch">Hollow 5"</option>
-                  <option value="hollow-6inch">Hollow 6"</option>
+                  <option value="mixer">Mixer</option>
+                  <option value="operator">Operator</option>
+                  <option value="palletizer">Palletizer</option>
+                  <option value="driver">Driver</option>
+                  <option value="loader">Loader</option>
                 </select>
               </div>
               <div className="md:col-span-4 flex justify-end">
