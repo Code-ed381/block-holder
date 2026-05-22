@@ -14,9 +14,10 @@ import {
   createProductionLog,
   deleteProductionLog,
   getEmployee,
+  getSpecializationConfigs,
 } from "../utils/db";
 import { formatDate, formatCurrency } from "../utils/config";
-import type { Employee, BlockType, ProductionConfig, Inventory } from "../types";
+import type { Employee, BlockType, ProductionConfig, Inventory, SpecializationConfig } from "../types";
 
 export const EmployeeDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -28,6 +29,7 @@ export const EmployeeDashboard: React.FC = () => {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
+  const [specConfigs, setSpecConfigs] = useState<SpecializationConfig[]>([]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -45,10 +47,11 @@ export const EmployeeDashboard: React.FC = () => {
   const fetchData = async () => {
     if (!user?.id) return;
     try {
-      const [empData, configData, invData] = await Promise.all([
+      const [empData, configData, invData, specData] = await Promise.all([
         getEmployee(user.id),
         getProductionConfigs(),
         getInventory(),
+        getSpecializationConfigs(),
       ]);
 
       // Fetch only the logs belonging to the active logged-in employee
@@ -65,14 +68,15 @@ export const EmployeeDashboard: React.FC = () => {
       setConfigs(configData as unknown as ProductionConfig[]);
       setInventory(invData);
       setLogs(logsData || []);
+      setSpecConfigs(specData as SpecializationConfig[]);
 
       // If the employee has a specialisation, pre-select it in the form
-      if (empData?.specialisation) {
-        setFormData((prev) => ({
-          ...prev,
-          block_type: empData.specialisation as BlockType,
-        }));
-      }
+      // if (empData?.specialisation) {
+      //   setFormData((prev) => ({
+      //     ...prev,
+      //     block_type: empData.specialisation as BlockType,
+      //   }));
+      // }
     } catch (error) {
       console.error("Failed to load employee dashboard data:", error);
       toast.error("Failed to load dashboard data");
@@ -125,8 +129,28 @@ export const EmployeeDashboard: React.FC = () => {
     [monthlyLogs]
   );
 
-  const rate = employee?.rate || 0.5;
-  const projectedEarnings = monthlyBlocks * rate;
+  const builderSpecs = new Set(["mixer", "operator", "palletizer"]);
+  const empSpec = employee?.specialisation
+    ? specConfigs.find((s) => s.specialization === employee.specialisation)
+    : null;
+  const isBuilder = employee?.specialisation
+    ? builderSpecs.has(employee.specialisation)
+    : false;
+  const displayRate = empSpec
+    ? isBuilder
+      ? empSpec.daily_rate
+      : empSpec.per_block_rate
+    : employee?.rate || 0.5;
+
+  // Count unique days the employee logged this month
+  const monthlyDays = useMemo(
+    () => new Set(monthlyLogs.map((l) => l.date)).size,
+    [monthlyLogs],
+  );
+
+  const projectedEarnings = isBuilder
+    ? monthlyDays * displayRate
+    : monthlyBlocks * displayRate;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,6 +182,9 @@ export const EmployeeDashboard: React.FC = () => {
     }
 
     setLoading(true);
+
+    console.log("Submitting production log:", formData);
+    console.log("Materials needed:", materialsNeeded);
     try {
       await createProductionLog({
         date: formData.date,
@@ -254,13 +281,17 @@ export const EmployeeDashboard: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
                 <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">
-                  My Rate / Block
+                  {isBuilder ? "My Daily Rate" : "My Rate / Block"}
                 </p>
                 <p className="text-2xl font-black text-slate-800 font-mono mt-2">
-                  {formatCurrency(rate)}
+                  {formatCurrency(displayRate)}
                 </p>
                 <span className="text-[10px] text-slate-400 mt-2">
-                  {employee?.role === "Manager" ? "Paid per day" : "Paid per block produced"}
+                  {isBuilder
+                    ? "Paid daily rate + shared bonus"
+                    : employee?.role === "Manager"
+                      ? "Paid per day"
+                      : "Paid per block produced"}
                 </span>
               </div>
 
@@ -271,9 +302,9 @@ export const EmployeeDashboard: React.FC = () => {
                 <p className="text-2xl font-black text-blue-600 font-mono mt-2">
                   {todayBlocks.toLocaleString()} <span className="text-xs font-normal text-gray-500">blocks</span>
                 </p>
-                <span className="text-[10px] text-blue-500 font-bold mt-2">
-                  Estimated earnings: {formatCurrency(todayBlocks * rate)}
-                </span>
+                  <span className="text-[10px] text-blue-500 font-bold mt-2">
+                    Estimated earnings: {formatCurrency(todayBlocks * (empSpec?.per_block_rate || employee?.rate || 0.5))}
+                  </span>
               </div>
 
               <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
@@ -479,7 +510,7 @@ export const EmployeeDashboard: React.FC = () => {
                               {log.quantity_produced.toLocaleString()}
                             </td>
                             <td className="px-6 py-4 text-sm text-right font-bold text-emerald-600 font-mono">
-                              {formatCurrency(log.quantity_produced * rate)}
+                              {formatCurrency(log.quantity_produced * (empSpec?.per_block_rate || employee?.rate || 0.5))}
                             </td>
                             <td className="px-6 py-4 text-center">
                               {log.date === today ? (

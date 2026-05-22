@@ -36,6 +36,9 @@ export const EmployeeManagement: React.FC = () => {
     specialisation: "" as Specialization | "",
   });
 
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
   
   const fetchEmployees = async () => {
     try {
@@ -48,9 +51,6 @@ export const EmployeeManagement: React.FC = () => {
     }
   };
   
-  useEffect(() => {
-    fetchEmployees();
-  }, []);
 
   
   const handleAddEmployee = async (e: React.FormEvent) => {
@@ -352,7 +352,7 @@ export const EmployeeManagement: React.FC = () => {
                       Role & Spec
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">
-                      Rate / Day
+                      Rate
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">
                       Monthly Production
@@ -397,11 +397,13 @@ export const EmployeeManagement: React.FC = () => {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-mono font-bold">
-                            {formatCurrency(emp.rate)}/{emp.role === "Manager" ? "day" : "blk"}
+                            {emp.specialisation && ["mixer", "operator", "palletizer", "driver", "loader"].includes(emp.specialisation)
+                              ? `${formatCurrency(emp.rate)}/blk (configured in spec rates)`
+                              : `${formatCurrency(emp.rate)}/${emp.role === "Manager" ? "day" : "blk"}`}
                           </span>
                           <button
                             onClick={() => {
-                              const label = emp.role === "Manager" ? "daily rate" : "rate per block";
+                              const label = emp.specialisation ? "rate (note: spec-based roles use config rates)" : emp.role === "Manager" ? "daily rate" : "rate per block";
                               const newRate = prompt(
                                 `Enter new ${label}:`,
                                 emp.rate,

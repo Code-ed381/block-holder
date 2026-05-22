@@ -9,11 +9,17 @@ import { Navigation } from "../components/Navigation";
 import type {
   ProductionConfig as ProductionConfigType,
   BlockType,
+  SpecializationConfig,
+  ProductionSettings,
 } from "../types";
 import {
   getProductionConfigs,
   updateProductionConfig,
   resetProductionConfigs,
+  getSpecializationConfigs,
+  updateSpecializationConfig,
+  getProductionSettings,
+  updateProductionSettings,
 } from "../utils/db";
 
 const formatBlockType = (type: BlockType): string => {
@@ -34,8 +40,21 @@ export const ProductionConfig: React.FC = () => {
     Record<string, ProductionConfigType>
   >({});
 
+  // Specialization config state
+  const [specConfigs, setSpecConfigs] = useState<SpecializationConfig[]>([]);
+  const [specEditStates, setSpecEditStates] = useState<
+    Record<string, SpecializationConfig>
+  >({});
+  const [savingSpec, setSavingSpec] = useState<Set<string>>(new Set());
+
+  // Production settings state
+  const [editSettings, setEditSettings] = useState<ProductionSettings | null>(null);
+  const [savingSettings, setSavingSettings] = useState(false);
+
   useEffect(() => {
     loadConfigs();
+    loadSpecConfigs();
+    loadProdSettings();
   }, []);
 
   const loadConfigs = async () => {
@@ -43,8 +62,6 @@ export const ProductionConfig: React.FC = () => {
       const results =
         (await getProductionConfigs()) as ProductionConfigType[];
       setConfigs(results);
-
-      // Initialize edit states with current values
       const initialEditStates: Record<string, ProductionConfigType> = {};
       results.forEach((config) => {
         initialEditStates[config.id] = { ...config };
@@ -54,6 +71,29 @@ export const ProductionConfig: React.FC = () => {
       console.error("Failed to load configs:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadSpecConfigs = async () => {
+    try {
+      const results = (await getSpecializationConfigs()) as SpecializationConfig[];
+      setSpecConfigs(results);
+      const initial: Record<string, SpecializationConfig> = {};
+      results.forEach((c) => {
+        initial[c.id] = { ...c };
+      });
+      setSpecEditStates(initial);
+    } catch (error) {
+      console.error("Failed to load specialization configs:", error);
+    }
+  };
+
+  const loadProdSettings = async () => {
+    try {
+      const result = (await getProductionSettings()) as ProductionSettings;
+      setEditSettings({ ...result });
+    } catch (error) {
+      console.error("Failed to load production settings:", error);
     }
   };
 
@@ -99,6 +139,63 @@ export const ProductionConfig: React.FC = () => {
         newSet.delete(configId);
         return newSet;
       });
+    }
+  };
+
+  const handleSpecFieldChange = (
+    configId: string,
+    field: "daily_rate" | "per_block_rate",
+    value: number,
+  ) => {
+    setSpecEditStates((prev) => ({
+      ...prev,
+      [configId]: {
+        ...prev[configId],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleSaveSpecConfig = async (configId: string) => {
+    const editState = specEditStates[configId];
+    if (!editState) return;
+
+    setSavingSpec((prev) => new Set(prev).add(configId));
+    try {
+      await updateSpecializationConfig(configId, {
+        daily_rate: editState.daily_rate,
+        per_block_rate: editState.per_block_rate,
+      });
+      setSpecConfigs((prev) =>
+        prev.map((c) => (c.id === configId ? { ...editState } : c)),
+      );
+    } catch (error) {
+      console.error("Failed to save specialization config:", error);
+      alert("Failed to save. Please try again.");
+    } finally {
+      setSavingSpec((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(configId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    if (!editSettings) return;
+    setSavingSettings(true);
+    try {
+      const result = await updateProductionSettings({
+        blocks_per_bonus: editSettings.blocks_per_bonus,
+        bonus_amount: editSettings.bonus_amount,
+      });
+      setEditSettings({ ...result });
+      alert("Production settings saved successfully!");
+    } catch (error) {
+      console.error("Failed to save production settings:", error);
+      alert("Failed to save. Please try again.");
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -307,6 +404,147 @@ export const ProductionConfig: React.FC = () => {
             Changes to production configuration will only affect future
             production logs. Existing logs will retain their original values.
           </p>
+        </div>
+
+        {/* Specialization Rates */}
+        <div className="bg-white rounded-lg shadow overflow-hidden mt-8">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-800">
+              Specialization Rates
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Set daily rates for builders (operator, mixer, palletizer) and per-block rates for drivers &amp; loaders.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Specialization</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Daily Rate (₵)</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Per Block Rate (₵)</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {specConfigs.map((config) => {
+                  const editState = specEditStates[config.id] || config;
+                  const isSaving = savingSpec.has(config.id);
+                  const hasChanges =
+                    editState.daily_rate !== config.daily_rate ||
+                    editState.per_block_rate !== config.per_block_rate;
+
+                  return (
+                    <tr key={config.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm font-medium text-gray-900 capitalize">{config.specialization}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={editState.daily_rate}
+                          onChange={(e) =>
+                            handleSpecFieldChange(config.id, "daily_rate", parseFloat(e.target.value) || 0)
+                          }
+                          className="w-24 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={editState.per_block_rate}
+                          onChange={(e) =>
+                            handleSpecFieldChange(config.id, "per_block_rate", parseFloat(e.target.value) || 0)
+                          }
+                          className="w-24 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {hasChanges ? (
+                          <button
+                            onClick={() => handleSaveSpecConfig(config.id)}
+                            disabled={isSaving}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isSaving ? "Saving..." : "Save"}
+                          </button>
+                        ) : (
+                          <span className="text-sm text-green-600 font-medium">✓ Saved</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Production Settings */}
+        <div className="bg-white rounded-lg shadow overflow-hidden mt-8">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-800">
+              Builder Bonus Settings
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Builders (operator, mixer, palletizer) split this bonus equally per day based on total blocks produced.
+            </p>
+          </div>
+          <div className="p-6">
+            {editSettings && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Blocks per Bonus Batch
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={editSettings.blocks_per_bonus}
+                    onChange={(e) =>
+                      setEditSettings({ ...editSettings, blocks_per_bonus: parseInt(e.target.value) || 1 })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    e.g. 40 blocks = 1 bonus batch
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bonus Amount per Batch (₵)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editSettings.bonus_amount}
+                    onChange={(e) =>
+                      setEditSettings({ ...editSettings, bonus_amount: parseFloat(e.target.value) || 0 })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    e.g. ₵30 per 40 blocks
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="mt-4">
+              <button
+                onClick={handleSaveSettings}
+                disabled={savingSettings || !editSettings}
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {savingSettings ? "Saving..." : "Save Settings"}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

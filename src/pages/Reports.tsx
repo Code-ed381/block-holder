@@ -188,9 +188,10 @@ export const Reports: React.FC = () => {
       csvContent += `Cement Bags,${data.openingStock.cement},${cementConsumed},${cementRestocked},${data.openingStock.cement - cementConsumed + cementRestocked}\n`;
       csvContent += `Quarry Dust (m3),${data.openingStock.dust},${dustConsumed},${dustRestocked},${data.openingStock.dust - dustConsumed + dustRestocked}\n`;
     } else if (reportType === "payroll") {
-      csvContent = "Employee,Period,Blocks Produced,Salary Amount,Status\n";
+      csvContent = "Employee,Period,Blocks/Days,Salary Amount,Status\n";
       data.salaryRecords.forEach((rec) => {
-        csvContent += `${rec.employee_name},${rec.period},${rec.blocks_total},${rec.amount},${rec.status}\n`;
+        const qty = rec.blocks_total > 0 ? rec.blocks_total : rec.days_billed;
+        csvContent += `${rec.employee_name},${rec.period},${qty},${rec.amount},${rec.status}\n`;
       });
     }
 
@@ -370,7 +371,7 @@ export const Reports: React.FC = () => {
               <tr>
                 <th>Employee</th>
                 <th>Period</th>
-                <th>Blocks Produced</th>
+                <th>Blocks / Days</th>
                 <th>Rate</th>
                 <th>Total Salary</th>
                 <th>Status</th>
@@ -383,7 +384,7 @@ export const Reports: React.FC = () => {
                     <strong>{rec.employee_name}</strong>
                   </td>
                   <td>{rec.period}</td>
-                  <td>{rec.blocks_total.toLocaleString()}</td>
+                  <td>{rec.blocks_total > 0 ? rec.blocks_total.toLocaleString() : `${rec.days_billed} days`}</td>
                   <td>{formatCurrency(rec.rate)}</td>
                   <td>
                     <strong>{formatCurrency(rec.amount)}</strong>

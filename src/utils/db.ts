@@ -48,11 +48,81 @@ export async function resetProductionConfigs() {
   return data;
 }
 
+// ─── Specialization Configs ─────────────────────────────────────────────────────
+
+export async function getSpecializationConfigs() {
+  const { data, error } = await supabase
+    .from("specialization_configs")
+    .select("*")
+    .order("specialization");
+  if (error) throw error;
+  return data;
+}
+
+export async function updateSpecializationConfig(
+  id: string,
+  data: {
+    daily_rate: number;
+    per_block_rate: number;
+  },
+) {
+  const { data: result, error } = await supabase
+    .from("specialization_configs")
+    .update({ ...data, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return result;
+}
+
+// ─── Production Settings ────────────────────────────────────────────────────────
+
+export async function getProductionSettings() {
+  const { data, error } = await supabase
+    .from("production_settings")
+    .select("*")
+    .limit(1)
+    .single();
+  if (error) {
+    if (error.code === "PGRST116") {
+      return { id: "default", blocks_per_bonus: 40, bonus_amount: 30, updated_at: new Date().toISOString() };
+    }
+    throw error;
+  }
+  return data;
+}
+
+export async function updateProductionSettings(data: {
+  blocks_per_bonus: number;
+  bonus_amount: number;
+}) {
+  const { data: result, error } = await supabase
+    .from("production_settings")
+    .update({ ...data, updated_at: new Date().toISOString() })
+    .eq("id", "default")
+    .select()
+    .single();
+  if (error) {
+    if (error.code === "PGRST116") {
+      const { data: inserted, error: insertError } = await supabase
+        .from("production_settings")
+        .insert({ id: "default", ...data, updated_at: new Date().toISOString() })
+        .select()
+        .single();
+      if (insertError) throw insertError;
+      return inserted;
+    }
+    throw error;
+  }
+  return result;
+}
+
 // ─── Employees ─────────────────────────────────────────────────────────────────
 
 export async function getEmployees() {
   const now = new Date();
-  const currentMonth = now.toISOString().substring(0, 7); // YYYY-MM
+  const currentMonth = now.toISOString().substring(0, 7);
   const daysInCurrentMonth = new Date(
     now.getFullYear(),
     now.getMonth() + 1,
@@ -71,7 +141,44 @@ export async function getEmployees() {
 
   if (error) throw error;
 
-  // Calculate monthly totals
+  const [specConfigs, prodSettings] = await Promise.all([
+    getSpecializationConfigs().catch(() => [] as any[]),
+    getProductionSettings().catch(() => ({ blocks_per_bonus: 40, bonus_amount: 30 })),
+  ]);
+
+  const specMap = new Map(specConfigs.map((s: any) => [s.specialization, s]));
+
+  const builderSpecs = new Set(["mixer", "operator", "palletizer"]);
+
+  // Process builder data per-employee (nested production_logs don't include employee_id)
+  const builderEmployees = data.filter(
+    (emp: any) => emp.specialisation && builderSpecs.has(emp.specialisation),
+  );
+
+  let totalBuilderBlocks = 0;
+  const builderDaysByEmployee: Record<string, Set<string>> = {};
+  let totalBuilderDays = 0;
+
+  builderEmployees.forEach((emp: any) => {
+    const days = new Set<string>();
+    (emp.production_logs || [])
+      .filter((log: any) => log.date?.startsWith(currentMonth))
+      .forEach((log: any) => {
+        days.add(log.date);
+        totalBuilderBlocks += log.quantity_produced || 0;
+      });
+    if (days.size > 0) {
+      builderDaysByEmployee[emp.id] = days;
+      totalBuilderDays += days.size;
+    }
+  });
+
+  const totalBonus =
+    totalBuilderBlocks > 0
+      ? Math.floor(totalBuilderBlocks / prodSettings.blocks_per_bonus) *
+        prodSettings.bonus_amount
+      : 0;
+
   return data.map((emp: any) => {
     const monthlyLogs =
       emp.production_logs?.filter((log: any) =>
@@ -81,13 +188,28 @@ export async function getEmployees() {
       (sum: number, log: any) => sum + (log.quantity_produced || 0),
       0,
     );
+    const spec = emp.specialisation ? specMap.get(emp.specialisation) : null;
+
+    let projectedSalary = 0;
+    if (emp.role === "Manager") {
+      projectedSalary = daysInCurrentMonth * emp.rate;
+    } else if (spec && builderSpecs.has(emp.specialisation)) {
+      const empDays = builderDaysByEmployee[emp.id]?.size || 0;
+      const bonusShare =
+        totalBuilderDays > 0
+          ? totalBonus * (empDays / totalBuilderDays)
+          : 0;
+      projectedSalary = empDays * spec.daily_rate + bonusShare;
+    } else if (spec && spec.per_block_rate > 0) {
+      projectedSalary = totalBlocks * spec.per_block_rate;
+    } else {
+      projectedSalary = totalBlocks * emp.rate;
+    }
+
     return {
       ...emp,
       total_blocks_month: totalBlocks,
-      projected_salary_month:
-        emp.role === "Manager"
-          ? daysInCurrentMonth * emp.rate
-          : totalBlocks * emp.rate,
+      projected_salary_month: projectedSalary,
     };
   });
 }
@@ -179,6 +301,12 @@ export async function createProductionLog(data: {
   cement_bags_used: number;
   quarry_dust_m3_used: number;
 }) {
+  console.table(data.date);
+  console.table(data.employee_id);
+  console.table(data.block_type);
+  console.table(data.quantity_produced);
+  console.table(data.cement_bags_used);
+  console.table(data.quarry_dust_m3_used);
   // Get config snapshot
   const { data: config, error: configError } = await supabase
     .from("production_configs")
@@ -308,7 +436,7 @@ export async function getInventory() {
     .from("inventory")
     .select("*")
     .limit(1)
-    .single();
+    // .single();
 
   if (error) {
     if (error.code === "PGRST116") {
@@ -325,7 +453,7 @@ export async function getInventory() {
     }
     throw error;
   }
-  return data;
+  return data[0];
 }
 
 export async function updateInventoryThresholds(data: {

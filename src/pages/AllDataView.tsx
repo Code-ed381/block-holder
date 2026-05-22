@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navigation } from "../components/Navigation";
-import { formatDate } from "../utils/config";
+import { formatDate, formatCurrency } from "../utils/config";
 import {
   getEmployees,
   getProductionLogs,
@@ -131,7 +131,7 @@ export const AllDataView: React.FC = () => {
                       Role
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                      Daily Wage
+                      Rate
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                       Status
@@ -151,7 +151,9 @@ export const AllDataView: React.FC = () => {
                         {emp.role}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        ₹{emp.daily_wage}
+                        {emp.role === "Manager" || (emp.specialisation && ["mixer", "operator", "palletizer"].includes(emp.specialisation))
+                          ? `${formatCurrency(emp.rate)}/day`
+                          : `${formatCurrency(emp.rate)}/blk`}
                       </td>
                       <td className="px-6 py-4">
                         <span

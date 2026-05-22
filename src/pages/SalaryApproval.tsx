@@ -171,21 +171,21 @@ export const SalaryApproval: React.FC = () => {
       .reduce((sum, log) => sum + log.quantity_produced, 0);
   };
 
-  const isManagerRecord = (record: any): boolean =>
-    record.employee_role === "Manager";
+  const isDailyPaid = (record: any): boolean =>
+    record.employee_role === "Manager" || (record.days_billed || 0) > 0;
 
   const getActivityBilled = (record: any): number => {
-    if (isManagerRecord(record)) return record.days_billed || getDaysInPeriod(record.period);
+    if (isDailyPaid(record)) return record.days_billed || getDaysInPeriod(record.period);
     return record.blocks_total;
   };
 
   const getActivityLogged = (record: any): number => {
-    if (isManagerRecord(record)) return getDaysInPeriod(record.period);
+    if (isDailyPaid(record)) return getDaysInPeriod(record.period);
     return getBlocksLogged(record.employee_id, record.period);
   };
 
   const hasMismatch = (record: any): boolean => {
-    if (isManagerRecord(record)) return false;
+    if (isDailyPaid(record)) return false;
     const logged = getBlocksLogged(record.employee_id, record.period);
     return logged !== record.blocks_total;
   };
@@ -387,7 +387,6 @@ export const SalaryApproval: React.FC = () => {
                   </thead>
                   <tbody className="divide-y">
                     {selectedBatch.records.map((record: any) => {
-                      const isManager = isManagerRecord(record);
                       const activityBilled = getActivityBilled(record);
                       const activityLogged = getActivityLogged(record);
                       const mismatch = hasMismatch(record);
@@ -410,10 +409,10 @@ export const SalaryApproval: React.FC = () => {
                           </td>
                           <td className="px-6 py-4 text-gray-600">
                             ${record.rate?.toFixed(2)}{" "}
-                            {isManager ? "per day" : "per block"}
+                            {isDailyPaid(record) ? "per day" : "per block"}
                           </td>
                           <td className="px-6 py-4 text-gray-900 font-medium">
-                            {activityBilled} {isManager ? "days" : "blocks"}
+                            {activityBilled} {isDailyPaid(record) ? "days" : "blocks"}
                           </td>
                           <td className="px-6 py-4">
                             <span
@@ -423,7 +422,7 @@ export const SalaryApproval: React.FC = () => {
                                   : "text-gray-900"
                               }
                             >
-                              {activityLogged} {isManager ? "days" : "blocks"}
+                              {activityLogged} {isDailyPaid(record) ? "days" : "blocks"}
                             </span>
                             {mismatch && (
                               <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
@@ -568,7 +567,7 @@ export const SalaryApproval: React.FC = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-gray-600">
-                        {isManagerRecord(viewRecordModal) ? "Daily Rate" : "Rate per Block"}
+                        {isDailyPaid(viewRecordModal) ? "Daily Rate" : "Rate per Block"}
                       </span>
                       <span className="font-medium">
                         ${viewRecordModal.rate?.toFixed(2)}
@@ -576,10 +575,10 @@ export const SalaryApproval: React.FC = () => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">
-                        {isManagerRecord(viewRecordModal) ? "Days Billed" : "Blocks Billed"}
+                        {isDailyPaid(viewRecordModal) ? "Days Billed" : "Blocks Billed"}
                       </span>
                       <span className="font-medium">
-                        {isManagerRecord(viewRecordModal) ? viewRecordModal.days_billed : viewRecordModal.blocks_total}
+                        {isDailyPaid(viewRecordModal) ? viewRecordModal.days_billed : viewRecordModal.blocks_total}
                       </span>
                     </div>
                     <div className="flex justify-between border-t pt-2 mt-2">

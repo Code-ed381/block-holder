@@ -10,9 +10,12 @@ import {
   getEmployees,
   getProductionLogs,
   createSalaryBatch,
+  getSpecializationConfigs,
+  getProductionSettings,
 } from "../utils/db";
 import { useToast } from "../context/ToastContext";
 import { formatCurrency } from "../utils/config";
+import type { SpecializationConfig, ProductionSettings } from "../types";
 
 type PeriodType = "week" | "month";
 
@@ -88,10 +91,12 @@ export const SalaryBatchSubmission: React.FC = () => {
   const [periodType, setPeriodType] = useState<PeriodType>("month");
   const [period, setPeriod] = useState(() => {
     const now = new Date();
-    return now.toISOString().substring(0, 7); // YYYY-MM
+    return now.toISOString().substring(0, 7);
   });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [specConfigs, setSpecConfigs] = useState<SpecializationConfig[]>([]);
+  const [prodSettings, setProdSettings] = useState<ProductionSettings | null>(null);
 
   useEffect(() => {
     loadData();
@@ -107,12 +112,16 @@ export const SalaryBatchSubmission: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const [empData, logData] = await Promise.all([
+      const [empData, logData, specData, settingsData] = await Promise.all([
         getEmployees(),
         getProductionLogs(),
+        getSpecializationConfigs(),
+        getProductionSettings(),
       ]);
       setEmployees(empData);
       setProductionLogs(logData);
+      setSpecConfigs(specData as SpecializationConfig[]);
+      setProdSettings(settingsData as ProductionSettings);
     } catch (error) {
       console.error("Failed to load data:", error);
     } finally {
@@ -133,44 +142,119 @@ export const SalaryBatchSubmission: React.FC = () => {
       .reduce((sum, log) => sum + log.quantity_produced, 0);
   };
 
-  const calculateSalary = (
-    employee: any,
-    blocks: number,
-    daysInPeriod: number,
-  ): number => {
-    if (employee.role === "Manager") {
-      return employee.rate * daysInPeriod;
-    }
-    return blocks * employee.rate;
-  };
-
   const daysInPeriod = getDaysInPeriod(period, periodType);
+
+  const range = getPeriodDateRange(period, periodType);
+
+  const specMap = new Map(specConfigs.map((s) => [s.specialization, s]));
+  const builderSpecs = new Set(["mixer", "operator", "palletizer"]);
+
+  // Get logs for the period
+  const periodLogs = range
+    ? productionLogs.filter(
+        (log) => log.date >= range.startDate && log.date <= range.endDate,
+      )
+    : [];
+
+  // Group builder logs by date for bonus calculation
+  const builderLogsByDate: Record<string, { totalBlocks: number; builderIds: Set<string> }> = {};
+  // Track which days each builder worked
+  const builderDaysByEmployee: Record<string, Set<string>> = {};
+
+  // First, identify all employees with builder specializations
+  const builderEmployeeIds = new Set(
+    employees
+      .filter(
+        (emp) =>
+          emp.specialisation && builderSpecs.has(emp.specialisation),
+      )
+      .map((emp) => emp.id),
+  );
+
+  periodLogs.forEach((log) => {
+    if (!builderEmployeeIds.has(log.employee_id)) return;
+
+    if (!builderLogsByDate[log.date]) {
+      builderLogsByDate[log.date] = { totalBlocks: 0, builderIds: new Set() };
+    }
+    builderLogsByDate[log.date].totalBlocks += log.quantity_produced || 0;
+    builderLogsByDate[log.date].builderIds.add(log.employee_id);
+
+    if (!builderDaysByEmployee[log.employee_id]) {
+      builderDaysByEmployee[log.employee_id] = new Set();
+    }
+    builderDaysByEmployee[log.employee_id].add(log.date);
+  });
+
+  // Calculate bonus per builder per day
+  const builderBonusByEmployee: Record<string, number> = {};
+  const blocksPerBonus = prodSettings?.blocks_per_bonus || 40;
+  const bonusAmount = prodSettings?.bonus_amount || 30;
+
+  Object.entries(builderLogsByDate).forEach(([, data]) => {
+    const batches = Math.floor(data.totalBlocks / blocksPerBonus);
+    const dailyBonus = batches * bonusAmount;
+    const builderCount = data.builderIds.size;
+    if (builderCount > 0 && dailyBonus > 0) {
+      const share = dailyBonus / builderCount;
+      data.builderIds.forEach((bId) => {
+        builderBonusByEmployee[bId] = (builderBonusByEmployee[bId] || 0) + share;
+      });
+    }
+  });
 
   const salaryBreakdown = employees
     .filter((emp) => emp.status === "active")
     .map((emp) => {
       const isManager = emp.role === "Manager";
       const blocks = getEmployeeProduction(emp.id);
-      const amount = calculateSalary(emp, blocks, daysInPeriod);
-      const activityQuantity = isManager ? daysInPeriod : blocks;
+      const spec = emp.specialisation ? specMap.get(emp.specialisation) : null;
+
+      let amount = 0;
+      let activityQuantity = 0;
+      let breakdownLabel = "";
+
+      if (isManager) {
+        amount = emp.rate * daysInPeriod;
+        activityQuantity = daysInPeriod;
+        breakdownLabel = `${formatCurrency(emp.rate)}/day × ${daysInPeriod} days`;
+      } else if (spec && builderSpecs.has(emp.specialisation)) {
+        const empDays = builderDaysByEmployee[emp.id]?.size || 0;
+        const dailyPay = empDays * spec.daily_rate;
+        const bonusShare = builderBonusByEmployee[emp.id] || 0;
+        amount = dailyPay + bonusShare;
+        activityQuantity = empDays;
+        breakdownLabel = `${formatCurrency(spec.daily_rate)}/day × ${empDays} days + bonus ${formatCurrency(bonusShare)}`;
+      } else if (spec && spec.per_block_rate > 0) {
+        amount = blocks * spec.per_block_rate;
+        activityQuantity = blocks;
+        breakdownLabel = `${formatCurrency(spec.per_block_rate)}/block × ${blocks} blocks`;
+      } else {
+        amount = blocks * emp.rate;
+        activityQuantity = blocks;
+        breakdownLabel = `${formatCurrency(emp.rate)}/block × ${blocks} blocks`;
+      }
 
       return {
         ...emp,
+        spec,
         isManager,
         blocks,
         amount,
         activityQuantity,
+        breakdownLabel,
+        isBuilder: spec ? builderSpecs.has(emp.specialisation) : false,
       };
     })
-    .filter((emp) => emp.isManager || emp.blocks > 0);
+    .filter((emp) => emp.isManager || emp.amount > 0);
 
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
       const employeeRecords = salaryBreakdown.map((emp) => ({
         employee_id: emp.id,
-        blocks_total: emp.isManager ? 0 : emp.blocks,
-        days_billed: emp.isManager ? daysInPeriod : 0,
+        blocks_total: emp.isManager || emp.isBuilder ? 0 : emp.blocks,
+        days_billed: emp.isManager || emp.isBuilder ? emp.activityQuantity : 0,
         amount: emp.amount,
       }));
 
@@ -306,7 +390,7 @@ export const SalaryBatchSubmission: React.FC = () => {
                     Rate
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Activity
+                    {periodType === "week" ? "Days/Blocks" : "Days/Blocks"}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Calculated Salary
@@ -319,15 +403,21 @@ export const SalaryBatchSubmission: React.FC = () => {
                     <td className="px-6 py-4 font-medium text-gray-900">
                       {emp.name}
                     </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {formatCurrency(emp.rate)}{" "}
-                      {emp.isManager ? "per day" : "per block"}
+                    <td className="px-6 py-4 text-gray-600 text-sm">
+                      {emp.isManager
+                        ? `${formatCurrency(emp.rate)}/day`
+                        : emp.isBuilder
+                          ? `${formatCurrency(emp.spec?.daily_rate || 0)}/day`
+                          : `${formatCurrency(emp.spec?.per_block_rate || emp.rate)}/block`}
                     </td>
                     <td className="px-6 py-4 text-gray-900 font-medium">
-                      {emp.activityQuantity} {emp.isManager ? "days" : "blocks"}
+                      {emp.isManager || emp.isBuilder
+                        ? `${emp.activityQuantity} days`
+                        : `${emp.activityQuantity} blocks`}
                     </td>
                     <td className="px-6 py-4 text-gray-900 font-medium">
-                      {formatCurrency(emp.amount)}
+                      <div>{formatCurrency(emp.amount)}</div>
+                      <div className="text-[10px] text-gray-400 font-normal">{emp.breakdownLabel}</div>
                     </td>
                   </tr>
                 ))}
